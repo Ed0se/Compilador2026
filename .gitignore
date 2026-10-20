@@ -1,0 +1,63 @@
+# --- COMPILACIÓN Y ARCHIVOS DE JAVA ---
+*.class
+*.log
+*.ctxt
+.mtj.tmp/
+hs_err_pid*
+replay_pid*
+
+# --- ARCHIVOS DE CONFIGURACIÓN DE TU IDE o EDITOR ---
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Eclipse
+.metadata/
+bin/
+tmp/
+.settings/
+.project
+.classpath
+.factorypath
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# --- HERRAMIENTAS DE CONSTRUCCIÓN ---
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+
+# Gradle
+.gradle/
+build/
+/build/
+.gradletasknamecache
+gradle-app.setting
+
+# Permitir que el Gradle Wrapper se suba (si lo usas)
+!gradle-wrapper.jar
+
+# --- EMPAQUETADOS (Opcional, omitir si guardas librerías físicas) ---
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.txt
+
+# --- SISTEMA OPERATIVO ---
+.DS_Store
+Thumbs.db
+desktop.ini
