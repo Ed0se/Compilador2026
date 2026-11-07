@@ -61,6 +61,7 @@ public class Sintaxis {
                 put("main", new String[] { "M_PROG", "main", "(", ")", "M_STAT", "M_EXEC_ON", "{", "S_LIST", "}",
                         "M_EXEC_OFF", "PROGRAMA_TOP" });
                 put(T_ID, new String[] { "M_STAT", "M_DECL", T_ID, "PROG_ASIG", "PROG_C_L", "PROGRAMA_TOP" });
+                put(";", new String[] { ";", "PROGRAMA_TOP" });
                 put(T_FIN, new String[] {});
             }
         });
@@ -121,16 +122,19 @@ public class Sintaxis {
         m.put("CLEAR", new String[] { "M_STAT", "M_FUNC", "CLEAR", "OPT_SEMI" });
         m.put("if", new String[] { "M_STAT", "if", "(", "OR", ")", "STATU", "E_P" });
         m.put("while", new String[] { "M_STAT", "while", "(", "OR", ")", "STATU" });
-        m.put("do", new String[] { "M_STAT", "do", "STATU", "while", "(", "OR", ")" });
-        m.put("for", new String[] { "M_STAT", "for", "(", "F_B", ")", "STATU" });
+        m.put("do", new String[] { "M_STAT", "do", "STATU", "while", "(", "OR", ")", "OPT_SEMI" });
+        m.put("for", new String[] { "M_STAT", "for", "M_SCOPE_PUSH", "(", "F_B", ")", "STATU", "M_SCOPE_POP" });
         m.put("switch", new String[] { "M_STAT", "switch", "(", "OR", ")", "M_STAT", "M_EXEC_ON", "{", "C_L", "}",
-                "M_EXEC_OFF" });
-        m.put("return", new String[] { "M_STAT", "return", "OR" });
+                "M_EXEC_OFF", "OPT_SEMI" });
+        m.put("return", new String[] { "M_STAT", "return", "OR", "OPT_SEMI" });
         m.put("break", new String[] { "M_STAT", "break", "OPT_SEMI" });
         m.put("case", new String[] { "case", "OR", ":" });
         m.put("default", new String[] { "default", ":" });
         m.put("var", new String[] { "M_DECL_ON", "var", "V_L", ";", "M_DECL_OFF" });
         m.put("reg", new String[] { "M_DECL_ON", "reg", "R_L", "M_DECL_OFF" });
+        for (String s : FF)
+            if (!m.containsKey(s))
+                m.put(s, new String[] { "M_STAT", "OR", "OPT_SEMI" });
         TABLA.put("STATU", m);
 
         m = new HashMap<>();
@@ -272,6 +276,10 @@ public class Sintaxis {
         m = new HashMap<>();
         m.put(":", new String[] { ":", "OR" });
         m.put("=", new String[] { "=", "OR", "F_INIT_REST", ";", "OR", ";", "O_L" });
+        m.put("+=", new String[] { "+=", "OR", "F_INIT_REST", ";", "OR", ";", "O_L" });
+        m.put("-=", new String[] { "-=", "OR", "F_INIT_REST", ";", "OR", ";", "O_L" });
+        m.put("*=", new String[] { "*=", "OR", "F_INIT_REST", ";", "OR", ";", "O_L" });
+        m.put("/=", new String[] { "/=", "OR", "F_INIT_REST", ";", "OR", ";", "O_L" });
         m.put(";", new String[] { ";", "OR", ";", "O_L" });
         for (String s : emptyFollows)
             if (!m.containsKey(s))
@@ -279,7 +287,7 @@ public class Sintaxis {
         TABLA.put("F_T_ID", m);
 
         m = new HashMap<>();
-        m.put(",", new String[] { ",", T_ID, "=", "OR", "F_INIT_REST" });
+        m.put(",", new String[] { ",", "M_DECL", T_ID, "=", "OR", "F_INIT_REST" });
         for (String s : emptyFollows)
             if (!m.containsKey(s))
                 m.put(s, new String[] {});
@@ -288,7 +296,7 @@ public class Sintaxis {
         m = new HashMap<>();
         m.put(";", new String[] { ";", "OR", ";", "O_L" });
         m.put("var", new String[] { "var", "V_L", ";", "OR", ";", "O_L" });
-        m.put(T_ID, new String[] { T_ID, "F_T_ID" });
+        m.put(T_ID, new String[] { "M_DECL", T_ID, "F_T_ID" });
         TABLA.put("F_B", m);
 
         m = new HashMap<>();
@@ -415,6 +423,7 @@ public class Sintaxis {
     private final Map<Tokens, Integer> tokenAmbitos = new IdentityHashMap<>();
     private final Map<Tokens, Stack<Integer>> tokenScopeStacks = new IdentityHashMap<>();
     private final Map<Integer, Integer> lineaAmbitos = new HashMap<>();
+    private final Map<Integer, Stack<Integer>> lineaScopeStacks = new HashMap<>();
     private boolean aguardandoDeclaracion = false;
     private boolean procesandoParametros = false;
     private int totalParametrosActuales = 1;
@@ -427,8 +436,13 @@ public class Sintaxis {
         List<Tokens> merged = new ArrayList<>();
         for (int i = 0; i < tokens.size(); i++) {
             Tokens t = tokens.get(i);
+            if (t.getTipo() != null && t.getTipo().startsWith("Comentario")) {
+                continue;
+            }
             String lex = t.getLexema();
-            if (lex.length() == 1 && (lex.charAt(0) == '#' || lex.charAt(0) == '@' || lex.charAt(0) == '$' || lex.charAt(0) == '¿' || lex.charAt(0) == '¡')
+            if (lex.length() == 1
+                    && (lex.charAt(0) == '#' || lex.charAt(0) == '@' || lex.charAt(0) == '$' || lex.charAt(0) == '¿'
+                            || lex.charAt(0) == '¡')
                     && i + 1 < tokens.size()) {
                 char c = lex.charAt(0);
                 Tokens next = tokens.get(i + 1);
@@ -438,11 +452,16 @@ public class Sintaxis {
                     String tipo = "Identificador";
                     if (c == '#') {
                         char typeChar = Character.toUpperCase(nLex.charAt(0));
-                        if (typeChar == 'B') tipo = "Identificador num\u00e9rico binario";
-                        else if (typeChar == 'D') tipo = "Identificador num\u00e9rico decimal";
-                        else if (typeChar == 'O') tipo = "Identificador num\u00e9rico octal";
-                        else if (typeChar == 'X') tipo = "Identificador num\u00e9rico hexadecimal";
-                        else tipo = "Identificador num\u00e9rico";
+                        if (typeChar == 'B')
+                            tipo = "Identificador num\u00e9rico binario";
+                        else if (typeChar == 'D')
+                            tipo = "Identificador num\u00e9rico decimal";
+                        else if (typeChar == 'O')
+                            tipo = "Identificador num\u00e9rico octal";
+                        else if (typeChar == 'X')
+                            tipo = "Identificador num\u00e9rico hexadecimal";
+                        else
+                            tipo = "Identificador num\u00e9rico";
                     }
                     if (c == '@')
                         tipo = "Identificador cadena";
@@ -459,7 +478,26 @@ public class Sintaxis {
             }
             merged.add(t);
         }
-        this.tokens = merged;
+        List<Tokens> normalized = new ArrayList<>();
+        for (int i = 0; i < merged.size(); i++) {
+            Tokens t = merged.get(i);
+            normalized.add(t);
+            if (i + 1 < merged.size()) {
+                Tokens next = merged.get(i + 1);
+                String tTipo = t.getTipo() != null ? t.getTipo() : "";
+                String nTipo = next.getTipo() != null ? next.getTipo() : "";
+                String nLex = next.getLexema() != null ? next.getLexema() : "";
+                if (t.getLinea() == next.getLinea()
+                        && (tTipo.startsWith("Constante num") || tTipo.equals("Constante real")
+                                || tTipo.equals("Constante exponencial"))
+                        && nTipo.startsWith("Identificador")
+                        && !nLex.isEmpty()
+                        && "#@$¿¡".indexOf(nLex.charAt(0)) >= 0) {
+                    normalized.add(new Tokens("Operador matemático", "*", t.getLinea()));
+                }
+            }
+        }
+        this.tokens = normalized;
     }
 
     private enum EstadoContexto {
@@ -488,6 +526,7 @@ public class Sintaxis {
         this.tokenAmbitos.clear();
         this.tokenScopeStacks.clear();
         this.lineaAmbitos.clear();
+        this.lineaScopeStacks.clear();
 
         this.manejadorSimbolos.limpiar();
         this.fallosEnAmbitos.clear();
@@ -574,8 +613,8 @@ public class Sintaxis {
             historialAmbitos.add("Pila -> " + stackNiveles.toString().replace(" ", ""));
         }
 
-        semantica.analizarExpresiones(tokens, manejadorSimbolos, stackNiveles, tokenScopeStacks);
-        semantica.evaluarReglasSemanticas(tokens, manejadorSimbolos, tokenAmbitos, tokenScopeStacks, lineaAmbitos);
+        semantica.analizarExpresiones(tokens, manejadorSimbolos, stackNiveles, tokenScopeStacks, lineaScopeStacks);
+        semantica.evaluarReglasSemanticas(tokens, manejadorSimbolos, tokenAmbitos, tokenScopeStacks, lineaAmbitos, lineaScopeStacks);
         errores.addAll(semantica.getErroresSemanticos());
     }
 
@@ -692,6 +731,11 @@ public class Sintaxis {
         Stack<Integer> snap = new Stack<>();
         snap.addAll(stackNiveles);
         tokenScopeStacks.put(t, snap);
+        if (ln > 0) {
+            Stack<Integer> lineSnap = new Stack<>();
+            lineSnap.addAll(stackNiveles);
+            lineaScopeStacks.put(ln, lineSnap);
+        }
 
         if (lex.equals("def")) {
             if (i + 1 < tokens.size()) {
@@ -701,7 +745,9 @@ public class Sintaxis {
                     funcionesDetectadas++;
                     nombreFuncion = funId;
                     int ambitoN = nvl;
-                    EntidadSimbolo sym = new EntidadSimbolo(funId, determinarTipo(funId), "funcion", ambitoN, "-", "-",
+                    String tipoDatoSub = determinarTipo(funId);
+                    String clasifSub = tipoDatoSub.equals("void") ? "procedimiento" : "funcion";
+                    EntidadSimbolo sym = new EntidadSimbolo(funId, tipoDatoSub, clasifSub, ambitoN, "-", "-",
                             0, String.valueOf(funcionesDetectadas));
                     ctxFuncionAct = sym;
                     identificadorDeclarado = funId;
@@ -758,7 +804,9 @@ public class Sintaxis {
                         manejadorSimbolos.registrarEntidad(arrSym);
                     }
                 } else {
-                    EntidadSimbolo vSym = new EntidadSimbolo(lex, determinarTipo(lex), "var", nvl, "-", "-", null, "-");
+                    String clasifVar = (ctxActual == EstadoContexto.INACTIVO) ? "const" : "var";
+                    EntidadSimbolo vSym = new EntidadSimbolo(lex, determinarTipo(lex), clasifVar, nvl, "-", "-", null,
+                            "-");
                     if (manejadorSimbolos.verificarExistencia(lex, nvl)) {
                         agregarErrAm(lex, nvl, ln);
                     } else {
@@ -791,10 +839,14 @@ public class Sintaxis {
         if (c == '#') {
             if (lexema.length() > 1) {
                 char t = Character.toUpperCase(lexema.charAt(1));
-                if (t == 'B') return "bin";
-                if (t == 'D') return "decimal";
-                if (t == 'O') return "oct";
-                if (t == 'X') return "hex";
+                if (t == 'B')
+                    return "bin";
+                if (t == 'D')
+                    return "decimal";
+                if (t == 'O')
+                    return "oct";
+                if (t == 'X')
+                    return "hex";
             }
             return "decimal";
         }
@@ -962,6 +1014,7 @@ public class Sintaxis {
     public Semantica getSemantica() {
         return semantica;
     }
+
     public ManejadorSimbolos getManejadorSimbolos() {
         return manejadorSimbolos;
     }

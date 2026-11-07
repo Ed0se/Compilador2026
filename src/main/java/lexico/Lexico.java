@@ -109,7 +109,7 @@ public class Lexico {
 
     private boolean nextToken() {
         char c = peek(0);
-        if (c == '\u00C2') {
+        if (c == '\u00C2' || c == '\uFEFF') {
             pos++;
             return true;
         }
@@ -119,7 +119,7 @@ public class Lexico {
         if (c == '/' && peek(1) == '*') {
             return blockComment();
         }
-        if (c == '"' || c == '\'') {
+        if (c == '"' || c == '\'' || c == '\u201C' || c == '\u201D' || c == '\u00AB' || c == '\u00BB') {
             return stringConst();
         }
 
@@ -203,10 +203,18 @@ public class Lexico {
         char q = peek(0);
         int start = pos;
         pos++;
-        while (pos < input.length() && peek(0) != q && peek(0) != '\n') {
+        boolean isSmart = (q == '\u201C' || q == '\u201D');
+        while (pos < input.length()) {
+            char ch = peek(0);
+            if (ch == '\n') {
+                break;
+            }
+            if (ch == q || (isSmart && (ch == '\u201D' || ch == '\u201C' || ch == '"'))) {
+                break;
+            }
             pos++;
         }
-        if (pos < input.length() && peek(0) == q) {
+        if (pos < input.length() && (peek(0) == q || (isSmart && (peek(0) == '\u201D' || peek(0) == '\u201C' || peek(0) == '"')))) {
             pos++;
             addToken("Constante cadena", input.substring(start, pos));
             inc("Constantes cadena");

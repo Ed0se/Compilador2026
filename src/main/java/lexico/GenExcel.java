@@ -22,6 +22,7 @@ public class GenExcel {
             Map<Integer, Integer> erroresAmbito,
             List<EntidadSimbolo> simbolos,
             List<Semantica.ConteoTemporales> conteosSemantica,
+            List<ReglaSemantica> reglasSemantica,
             String filePath) throws IOException {
 
         try (XSSFWorkbook wb = new XSSFWorkbook()) {
@@ -99,7 +100,7 @@ public class GenExcel {
                     row.createCell(0).setCellValue(se.getCodigo());
                     row.createCell(1).setCellValue(se.getDescripcion());
                     row.createCell(2).setCellValue(se.getTerminal());
-                    
+
                     String codeStr = se.getCodigo();
                     int codeNum = -1;
                     try {
@@ -294,7 +295,23 @@ public class GenExcel {
                     "ARR"
             };
             int[] sintaxisCounts = new int[sintaxisHeaders.length];
-            sintaxisCounts[0] = (sintaxisErrors != null) ? sintaxisErrors.size() : 0;
+            int realSintaxisErrors = 0;
+            if (sintaxisErrors != null) {
+                for (ErroresSin se : sintaxisErrors) {
+                    int codeNum = -1;
+                    try {
+                        if (se.getCodigo() != null) {
+                            codeNum = Integer.parseInt(se.getCodigo().trim());
+                        }
+                    } catch (Exception ignored) {
+                    }
+                    if (codeNum != 900 && codeNum != 901 && codeNum < 903
+                            && !"Semantica".equalsIgnoreCase(se.getNoTerminal())) {
+                        realSintaxisErrors++;
+                    }
+                }
+            }
+            sintaxisCounts[0] = realSintaxisErrors;
             if (visitas != null) {
                 for (int i = 1; i < ntKeys.length; i++) {
                     if (ntKeys[i] != null) {
@@ -486,7 +503,8 @@ public class GenExcel {
             XSSFSheet sheetSemantica = wb.createSheet("Semantica");
             sheetSemantica.setDisplayGridlines(true);
 
-            String[] semHeaders = { "Linea", "TBin", "TDec", "TOct", "THex", "TReal", "Texp", "TCadena", "TBoolean", "TVariant", "Asignaciones", "Errores" };
+            String[] semHeaders = { "Linea", "TBin", "TDec", "TOct", "THex", "TReal", "Texp", "TCadena", "TBoolean",
+                    "TVariant", "Asignaciones", "Errores" };
             Row shHeaderRow = sheetSemantica.createRow(0);
             for (int i = 0; i < semHeaders.length; i++) {
                 Cell cell = shHeaderRow.createCell(i);
@@ -495,7 +513,8 @@ public class GenExcel {
             }
 
             int semIdx = 1;
-            int totBin = 0, totDec = 0, totOct = 0, totHex = 0, totReal = 0, totExp = 0, totCadena = 0, totBool = 0, totVariant = 0, totAsig = 0, totErr = 0;
+            int totBin = 0, totDec = 0, totOct = 0, totHex = 0, totReal = 0, totExp = 0, totCadena = 0, totBool = 0,
+                    totVariant = 0, totAsig = 0, totErr = 0;
             if (conteosSemantica != null) {
                 for (Semantica.ConteoTemporales c : conteosSemantica) {
                     Row row = sheetSemantica.createRow(semIdx++);
@@ -526,7 +545,8 @@ public class GenExcel {
                 }
             }
 
-            // Create some blank rows to match formatting from picture if needed, but not strictly necessary. Let's just create the total row.
+            // Create some blank rows to match formatting from picture if needed, but not
+            // strictly necessary. Let's just create the total row.
             Row rowTot = sheetSemantica.createRow(semIdx + 1); // Leaving one empty row just in case.
             rowTot.createCell(0).setCellValue("Totales");
             rowTot.createCell(1).setCellValue(totBin);
@@ -547,6 +567,93 @@ public class GenExcel {
 
             wb.setSheetOrder("Tabla de simbolos", wb.getNumberOfSheets() - 2);
             wb.setSheetOrder("Semantica", wb.getNumberOfSheets() - 1);
+
+            // ── Semantica 2-Base ──────────────────────────────────────────────────
+            XSSFSheet sheetSem2Base = wb.createSheet("Semantica 2-Base");
+            sheetSem2Base.setDisplayGridlines(true);
+            String[] sem2BaseHeaders = { "Regla", "Tope de Pila", "Valor Real", "Linea", "Estado", "Ambito" };
+            Row sem2BaseHeaderRow = sheetSem2Base.createRow(0);
+            for (int i = 0; i < sem2BaseHeaders.length; i++) {
+                Cell cell = sem2BaseHeaderRow.createCell(i);
+                cell.setCellValue(sem2BaseHeaders[i]);
+                cell.setCellStyle(headerStyle);
+            }
+            if (reglasSemantica != null) {
+                int s2bIdx = 1;
+                for (ReglaSemantica r : reglasSemantica) {
+                    Row row = sheetSem2Base.createRow(s2bIdx++);
+                    try {
+                        row.createCell(0).setCellValue(Integer.parseInt(r.getClave()));
+                    } catch (NumberFormatException ex) {
+                        row.createCell(0).setCellValue(r.getClave());
+                    }
+                    row.createCell(1).setCellValue(r.getTopePila());
+                    row.createCell(2).setCellValue(r.getValorReal());
+                    row.createCell(3).setCellValue(r.getLinea());
+                    row.createCell(4).setCellValue(r.getSituacion());
+                    row.createCell(5).setCellValue(r.getAmbito());
+                }
+            }
+            int[] sem2BaseWidths = { 3000, 5500, 5500, 3000, 3500, 3000 };
+            for (int i = 0; i < sem2BaseWidths.length; i++) {
+                sheetSem2Base.setColumnWidth(i, sem2BaseWidths[i]);
+            }
+
+            // ── Semantica 2-Total ─────────────────────────────────────────────────
+            XSSFSheet sheetSem2Total = wb.createSheet("Semantica 2-Total");
+            sheetSem2Total.setDisplayGridlines(true);
+            String[] sem2TotalHeaders = { "Reglas", "Aparecen", "Aceptada", "Errores" };
+            Row sem2TotalHeaderRow = sheetSem2Total.createRow(0);
+            for (int i = 0; i < sem2TotalHeaders.length; i++) {
+                Cell cell = sem2TotalHeaderRow.createCell(i);
+                cell.setCellValue(sem2TotalHeaders[i]);
+                cell.setCellStyle(headerStyle);
+            }
+            int[] allRuleCodes = {
+                    1010, 1011, 1012, 1013,
+                    1020, 1021, 1022,
+                    1030, 1040, 1050,
+                    1060, 1061,
+                    1070,
+                    1080, 1081, 1082, 1083, 1084,
+                    1090, 1100, 1110, 1120,
+                    1130, 1131, 1140, 1150, 1160
+            };
+            java.util.Map<Integer, int[]> resumenReglas = new java.util.TreeMap<>();
+            for (int rc : allRuleCodes) {
+                resumenReglas.put(rc, new int[3]);
+            }
+            if (reglasSemantica != null) {
+                for (ReglaSemantica r : reglasSemantica) {
+                    int ruleCode = r.getRegla();
+                    try {
+                        ruleCode = Integer.parseInt(r.getClave());
+                    } catch (NumberFormatException ignored) {
+                    }
+                    resumenReglas.computeIfAbsent(ruleCode, k -> new int[3]);
+                    int[] counts = resumenReglas.get(ruleCode);
+                    counts[0]++; // aparecen
+                    if ("Acept".equalsIgnoreCase(r.getSituacion()) || "Aceptada".equalsIgnoreCase(r.getSituacion())) {
+                        counts[1]++; // aceptadas
+                    } else {
+                        counts[2]++; // errores
+                    }
+                }
+            }
+            int s2tIdx = 1;
+            for (java.util.Map.Entry<Integer, int[]> entry : resumenReglas.entrySet()) {
+                Row row = sheetSem2Total.createRow(s2tIdx++);
+                int[] counts = entry.getValue();
+                row.createCell(0).setCellValue(entry.getKey());
+                row.createCell(1).setCellValue(counts[0]);
+                row.createCell(2).setCellValue(counts[1]);
+                row.createCell(3).setCellValue(counts[2]);
+            }
+            int[] sem2TotalWidths = { 3500, 4000, 4000, 4000 };
+            for (int i = 0; i < sem2TotalWidths.length; i++) {
+                sheetSem2Total.setColumnWidth(i, sem2TotalWidths[i]);
+            }
+
             try (java.io.FileOutputStream out = new java.io.FileOutputStream(filePath)) {
                 wb.write(out);
             }

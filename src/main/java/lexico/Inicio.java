@@ -170,11 +170,11 @@ public class Inicio extends JFrame {
 
         JButton btnAbrir = vscBtn("Cargar", ACCENT_BLUE);
         btnCompilar = vscBtn("Compilar", ACCENT_BLUE);
-        JButton btnAvance = vscBtn("Generar Avance", ACCENT_TEAL);
+        JButton btnAvance = vscBtn("Generar Excel", ACCENT_TEAL);
 
         btnAbrir.addActionListener(e -> abrirArchivo());
         btnCompilar.addActionListener(e -> compilar());
-        btnAvance.addActionListener(e -> generarAvance());
+        btnAvance.addActionListener(e -> generarExcel());
 
         bar.add(btnAbrir);
         bar.add(btnCompilar);
@@ -268,12 +268,12 @@ public class Inicio extends JFrame {
 
     private JScrollPane buildReglasTab() {
         reglasTableModel = new DefaultTableModel(
-                new Object[] { "Linea", "Regla", "Descripción", "Situación", "Lexema", "Ámbito" }, 0) {
+                new Object[] { "Regla", "Tope de Pila", "Valor Real", "Línea", "Estado", "Ámbito" }, 0) {
             public boolean isCellEditable(int r, int c) {
                 return false;
             }
         };
-        return styledTable(reglasTableModel, new int[] { 50, 50, 320, 80, 100, 50 });
+        return styledTable(reglasTableModel, new int[] { 70, 150, 150, 70, 90, 70 });
     }
 
     private JScrollPane styledTable(DefaultTableModel model, int[] widths) {
@@ -354,12 +354,46 @@ public class Inicio extends JFrame {
             }
             currentFile = selected;
             try {
-                String content = new String(Files.readAllBytes(currentFile.toPath()),
-                        java.nio.charset.StandardCharsets.UTF_8);
+                byte[] bytes = Files.readAllBytes(currentFile.toPath());
+                String content = leerArchivoTexto(bytes);
                 codeArea.setText(content);
                 setStatus("  " + currentFile.getName() + " cargado", ACCENT_BLUE);
             } catch (IOException ex) {
                 setStatus("  Error al abrir archivo", STATUS_ERR);
+            }
+        }
+    }
+
+    private String leerArchivoTexto(byte[] bytes) {
+        if (bytes == null || bytes.length == 0) {
+            return "";
+        }
+        int offset = 0;
+        int len = bytes.length;
+        if (len >= 3 && (bytes[0] & 0xFF) == 0xEF && (bytes[1] & 0xFF) == 0xBB && (bytes[2] & 0xFF) == 0xBF) {
+            offset = 3;
+            len -= 3;
+            return new String(bytes, offset, len, java.nio.charset.StandardCharsets.UTF_8);
+        } else if (len >= 2 && (bytes[0] & 0xFF) == 0xFE && (bytes[1] & 0xFF) == 0xFF) {
+            return new String(bytes, 2, len - 2, java.nio.charset.StandardCharsets.UTF_16BE);
+        } else if (len >= 2 && (bytes[0] & 0xFF) == 0xFF && (bytes[1] & 0xFF) == 0xFE) {
+            return new String(bytes, 2, len - 2, java.nio.charset.StandardCharsets.UTF_16LE);
+        }
+
+        try {
+            java.nio.charset.CharsetDecoder utf8Decoder = java.nio.charset.StandardCharsets.UTF_8.newDecoder();
+            utf8Decoder.onMalformedInput(java.nio.charset.CodingErrorAction.REPORT);
+            utf8Decoder.onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT);
+            String res = utf8Decoder.decode(java.nio.ByteBuffer.wrap(bytes, offset, len)).toString();
+            if (res.startsWith("\uFEFF")) {
+                res = res.substring(1);
+            }
+            return res;
+        } catch (java.nio.charset.CharacterCodingException e) {
+            try {
+                return new String(bytes, offset, len, java.nio.charset.Charset.forName("Windows-1252"));
+            } catch (Exception ex) {
+                return new String(bytes, offset, len, java.nio.charset.StandardCharsets.ISO_8859_1);
             }
         }
     }
@@ -503,11 +537,11 @@ public class Inicio extends JFrame {
                 if (reglas != null && !reglas.isEmpty()) {
                     for (ReglaSemantica r : reglas) {
                         reglasTableModel.addRow(new Object[] {
+                                r.getClave(),
+                                r.getTopePila(),
+                                r.getValorReal(),
                                 r.getLinea(),
-                                r.getRegla(),
-                                r.getDescripcion(),
                                 r.getSituacion(),
-                                r.getLexema(),
                                 r.getAmbito()
                         });
                     }
@@ -548,7 +582,6 @@ public class Inicio extends JFrame {
         }
     }
 
-    @SuppressWarnings("unused")
     private void generarExcel() {
         if (parser == null) {
             JOptionPane.showMessageDialog(this, "No hay datos para exportar. Compile primero.",
@@ -557,12 +590,13 @@ public class Inicio extends JFrame {
             return;
         }
         JFileChooser fc = new JFileChooser();
-        fc.setSelectedFile(new File("Sem1_JoseEduardoRamirez_1.xlsx"));
+        fc.setSelectedFile(new File("Sem2_JoseEduardoRamirez_1.xlsx"));
         if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             try {
                 GenExcel.export(lex.getTokens(), lex.getErrors(), lex.getContadores(), parser.getErrores(),
                         parser.getVisitas(), parser.fallosEnAmbitos, parser.getManejadorSimbolos().obtenerTodos(),
                         parser.getSemantica().getConteos(),
+                        parser.getSemantica().getReglasSemanticas(),
                         fc.getSelectedFile().getAbsolutePath());
                 JOptionPane.showMessageDialog(this, "Archivo Excel generado correctamente.", "Exito",
                         JOptionPane.INFORMATION_MESSAGE);
