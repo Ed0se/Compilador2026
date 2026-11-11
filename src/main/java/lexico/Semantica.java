@@ -1,9 +1,5 @@
 package lexico;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class Semantica {
@@ -365,49 +361,6 @@ public class Semantica {
         return matriz[i1][i2];
     }
 
-    // Move logic from Sintaxis to Semantica: EcuacionPrefijo, etc.
-    public static class EcuacionPrefijo {
-        public int linea;
-        public String original;
-        public String prefijo;
-        public List<String> cuadruplos;
-
-        public EcuacionPrefijo(int linea, String original, String prefijo, List<String> cuadruplos) {
-            this.linea = linea;
-            this.original = original;
-            this.prefijo = prefijo;
-            this.cuadruplos = cuadruplos;
-        }
-    }
-
-    private static class CaseItem {
-        public int linea;
-        public int ambito;
-        public List<Tokens> expr;
-
-        public CaseItem(int linea, int ambito, List<Tokens> expr) {
-            this.linea = linea;
-            this.ambito = ambito;
-            this.expr = expr;
-        }
-    }
-
-    private List<EcuacionPrefijo> prefijos = new ArrayList<>();
-
-    public List<EcuacionPrefijo> getPrefijos() {
-        return prefijos;
-    }
-
-    public void analizarExpresiones(List<Tokens> tokens, ManejadorSimbolos manejadorSimbolos,
-            Stack<Integer> stackNiveles) {
-        analizarExpresiones(tokens, manejadorSimbolos, stackNiveles, null, null);
-    }
-
-    public void analizarExpresiones(List<Tokens> tokens, ManejadorSimbolos manejadorSimbolos,
-            Stack<Integer> stackNiveles, Map<Tokens, Stack<Integer>> tokenScopeStacks) {
-        analizarExpresiones(tokens, manejadorSimbolos, stackNiveles, tokenScopeStacks, null);
-    }
-
     public void analizarExpresiones(List<Tokens> tokens, ManejadorSimbolos manejadorSimbolos,
             Stack<Integer> stackNiveles, Map<Tokens, Stack<Integer>> tokenScopeStacks,
             Map<Integer, Stack<Integer>> lineaScopeStacks) {
@@ -456,7 +409,6 @@ public class Semantica {
                 if (end > start) {
                     List<Tokens> rawExpr = tokens.subList(start, end);
                     List<Tokens> expr = simplificarTokensArreglos(rawExpr);
-                    String prefijo = infixToPrefix(expr);
 
                     Stack<Integer> activeScopes = (tokenScopeStacks != null && tokenScopeStacks.containsKey(t))
                             ? tokenScopeStacks.get(t)
@@ -469,21 +421,8 @@ public class Semantica {
                     }
 
                     List<String> postfix = infixToPostfix(expr);
-                    List<String> cuadruplos = generarCuadruplosSemanticos(postfix, id, lex, lineaApertura,
+                    generarCuadruplosSemanticos(postfix, id, lex, lineaApertura,
                             manejadorSimbolos, activeScopes);
-
-                    StringBuilder orig = new StringBuilder();
-                    if (!id.isEmpty())
-                        orig.append(id).append(" ");
-                    orig.append(lex).append(" ");
-                    for (Tokens tExpr : rawExpr) {
-                        orig.append(tExpr.getLexema()).append(" ");
-                    }
-
-                    if (!prefijo.isEmpty() || !cuadruplos.isEmpty()) {
-                        prefijos.add(new EcuacionPrefijo(lineaApertura, orig.toString().trim(),
-                                lex + " " + id + " " + prefijo, cuadruplos));
-                    }
                 }
                 i = end;
             }
@@ -531,50 +470,6 @@ public class Semantica {
 
     private boolean isOperator(String c) {
         return precedencia(c) > 0;
-    }
-
-    private String infixToPrefix(List<Tokens> expr) {
-        List<String> reversed = new ArrayList<>();
-        for (int i = expr.size() - 1; i >= 0; i--) {
-            String lex = expr.get(i).getLexema();
-            if (lex.equals("("))
-                reversed.add(")");
-            else if (lex.equals(")"))
-                reversed.add("(");
-            else
-                reversed.add(lex);
-        }
-
-        Stack<String> stack = new Stack<>();
-        List<String> postfix = new ArrayList<>();
-
-        for (String c : reversed) {
-            if (isOperator(c)) {
-                while (!stack.isEmpty() && isOperator(stack.peek()) && precedencia(stack.peek()) > precedencia(c)) {
-                    postfix.add(stack.pop());
-                }
-                stack.push(c);
-            } else if (c.equals("(")) {
-                stack.push(c);
-            } else if (c.equals(")")) {
-                while (!stack.isEmpty() && !stack.peek().equals("(")) {
-                    postfix.add(stack.pop());
-                }
-                if (!stack.isEmpty())
-                    stack.pop();
-            } else {
-                postfix.add(c);
-            }
-        }
-        while (!stack.isEmpty()) {
-            postfix.add(stack.pop());
-        }
-
-        StringBuilder res = new StringBuilder();
-        for (int i = postfix.size() - 1; i >= 0; i--) {
-            res.append(postfix.get(i)).append(" ");
-        }
-        return res.toString().trim();
     }
 
     private List<String> infixToPostfix(List<Tokens> expr) {
@@ -819,36 +714,6 @@ public class Semantica {
         return (c == '#' || c == '@' || c == '$' || c == '¿' || c == '¡') || Character.isLetter(c);
     }
 
-    public String evaluarTipoExpresion(List<Tokens> expr, ManejadorSimbolos ms, Stack<Integer> niveles) {
-        if (expr == null || expr.isEmpty())
-            return "variant";
-        List<Tokens> simpl = simplificarTokensArreglos(expr);
-        List<String> postfix = infixToPostfix(simpl);
-        Stack<String> stackTipo = new Stack<>();
-
-        for (String c : postfix) {
-            if (isOperator(c)) {
-                if (c.equals("!") || c.equals("~")) {
-                    String rightTipo = stackTipo.isEmpty() ? "variant" : stackTipo.pop();
-                    if (c.equals("!")) {
-                        stackTipo.push(rightTipo.equals("boolean") || rightTipo.equals("bool") ? "boolean" : "variant");
-                    } else {
-                        stackTipo.push(rightTipo);
-                    }
-                } else {
-                    String rightTipo = stackTipo.isEmpty() ? "variant" : stackTipo.pop();
-                    String leftTipo = stackTipo.isEmpty() ? "variant" : stackTipo.pop();
-                    String resTipo = resolverTipoOperacion(leftTipo, c, rightTipo);
-                    stackTipo.push(resTipo);
-                }
-            } else {
-                String tipo = deducirTipo(c, ms, niveles);
-                stackTipo.push(tipo);
-            }
-        }
-        return stackTipo.isEmpty() ? "variant" : stackTipo.pop();
-    }
-
     public String resolverTipoOperacion(String tipoIzq, String op, String tipoDer) {
         tipoIzq = normalizeType(tipoIzq);
         tipoDer = normalizeType(tipoDer);
@@ -936,16 +801,6 @@ public class Semantica {
         return res;
     }
 
-    private String tokensToString(List<Tokens> list) {
-        if (list == null || list.isEmpty())
-            return "";
-        StringBuilder sb = new StringBuilder();
-        for (Tokens t : list) {
-            sb.append(t.getLexema());
-        }
-        return sb.toString();
-    }
-
     private Integer parsearConstanteEntera(List<Tokens> idxExpr) {
         if (idxExpr == null || idxExpr.isEmpty())
             return null;
@@ -979,33 +834,6 @@ public class Semantica {
         return null;
     }
 
-    private boolean esDeclaracion(List<Tokens> tokens, int idx) {
-        for (int j = idx - 1; j >= 0; j--) {
-            String lx = tokens.get(j).getLexema();
-            if (lx.equals(";") || lx.equals("{") || lx.equals("}") || lx.equals("="))
-                return false;
-            if (lx.equals("var") || lx.equals("reg"))
-                return true;
-        }
-        return false;
-    }
-
-    private String[] detectarTamanioEnTokens(List<Tokens> tokens, int i) {
-        List<String> ls = new ArrayList<>();
-        int idx = i + 1;
-        if (idx < tokens.size() && tokens.get(idx).getLexema().equals("[")) {
-            idx++;
-            while (idx < tokens.size() && !tokens.get(idx).getLexema().equals("]")) {
-                Tokens tk = tokens.get(idx);
-                if (tk.getTipo().startsWith("Constante")) {
-                    ls.add(tk.getLexema());
-                }
-                idx++;
-            }
-        }
-        return ls.isEmpty() ? null : ls.toArray(new String[0]);
-    }
-
     private boolean esPalabraClave(String s) {
         if (s == null)
             return false;
@@ -1029,24 +857,6 @@ public class Semantica {
             if (b.equalsIgnoreCase(lex))
                 return true;
         return false;
-    }
-
-    private static class DefInfo {
-        String id;
-        int linea;
-        int ambito;
-        String tipoDato;
-        String clasificacion;
-        int cantParams;
-        List<String> paramTipos = new ArrayList<>();
-        List<ReturnStatement> retornos = new ArrayList<>();
-    }
-
-    private static class ReturnStatement {
-        Tokens returnToken;
-        int linea;
-        int ambito;
-        List<Tokens> exprTokens = new ArrayList<>();
     }
 
     private String determinarTipo(String lexema) {
@@ -1805,12 +1615,6 @@ public class Semantica {
 
     public void evaluarReglasSemanticas(List<Tokens> tokens, ManejadorSimbolos ms,
             Map<Tokens, Integer> tokenAmbitos, Map<Tokens, Stack<Integer>> tokenScopeStacks,
-            Map<Integer, Integer> lineaAmbitos) {
-        evaluarReglasSemanticas(tokens, ms, tokenAmbitos, tokenScopeStacks, lineaAmbitos, null);
-    }
-
-    public void evaluarReglasSemanticas(List<Tokens> tokens, ManejadorSimbolos ms,
-            Map<Tokens, Integer> tokenAmbitos, Map<Tokens, Stack<Integer>> tokenScopeStacks,
             Map<Integer, Integer> lineaAmbitos, Map<Integer, Stack<Integer>> lineaScopeStacks) {
         reglasSemanticas.clear();
         if (tokens == null || tokens.isEmpty()) {
@@ -2361,45 +2165,6 @@ public class Semantica {
                 }
                 i = stmtEnd - 1;
             }
-        }
-    }
-
-    public void exportarAvanceTxt(String filepath) throws IOException {
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(filepath, StandardCharsets.UTF_8))) {
-            bw.write(
-                    "=================================================================================================================================");
-            bw.newLine();
-            bw.write("                                                   AVANCE DE REGLAS SEMÁNTICAS");
-            bw.newLine();
-            bw.write(
-                    "=================================================================================================================================");
-            bw.newLine();
-            bw.write(String.format("%-6s | %-5s | %-65s | %-9s | %-15s | %s", "Linea", "Regla", "Descripción",
-                    "Situación", "Lexema", "Ámbito"));
-            bw.newLine();
-            bw.write(
-                    "---------------------------------------------------------------------------------------------------------------------------------");
-            bw.newLine();
-            int aceptados = 0;
-            int errores = 0;
-            for (ReglaSemantica r : reglasSemanticas) {
-                bw.write(r.toTableLine());
-                bw.newLine();
-                if ("Acept".equalsIgnoreCase(r.getSituacion())) {
-                    aceptados++;
-                } else {
-                    errores++;
-                }
-            }
-            bw.write(
-                    "---------------------------------------------------------------------------------------------------------------------------------");
-            bw.newLine();
-            bw.write(String.format("TOTAL EVALUACIONES: %d | ACEPTADAS: %d | ERRORES: %d", reglasSemanticas.size(),
-                    aceptados, errores));
-            bw.newLine();
-            bw.write(
-                    "=================================================================================================================================");
-            bw.newLine();
         }
     }
 }

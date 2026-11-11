@@ -1,8 +1,5 @@
 package lexico;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.*;
 
 public class Sintaxis {
@@ -396,8 +393,15 @@ public class Sintaxis {
         m.put("-", new String[] { "-", "FACT" });
         m.put("++", new String[] { "++", T_ID });
         m.put("--", new String[] { "--", T_ID });
-        for (String s : ms)
-            m.put(s, new String[] { "M_FACT", "M_FUNC", s, "(", "O_L", ")" });
+        String[] func1 = { "SQRT", "STRLEN", "sin", "cos", "tan", "chr", "pred", "succ", "inc", "dec", "sqr" };
+        for (String s : func1)
+            m.put(s, new String[] { "M_FACT", "M_FUNC", s, "(", "OR", ")" });
+
+        String[] func2 = { "POW", "SQRTV", "concat", "copy", "str" };
+        for (String s : func2)
+            m.put(s, new String[] { "M_FACT", "M_FUNC", s, "(", "OR", ",", "OR", ")" });
+
+        m.put("val", new String[] { "M_FACT", "M_FUNC", "val", "(", "OR", ",", "OR", ",", "OR", ")" });
         m.put("CLEAR", new String[] { "M_FACT", "M_FUNC", "CLEAR" });
         m.put("Console.read", new String[] { "M_FACT", "Console.read", "(", "O_L", ")" });
         m.put("console.read", new String[] { "M_FACT", "console.read", "(", "O_L", ")" });
@@ -414,7 +418,6 @@ public class Sintaxis {
     private final List<ZonaRegistro> zonasRegistradas = new LinkedList<>();
     private final Stack<Integer> stackNiveles = new Stack<>();
     private int contadorAmbitos = 0;
-    private final List<String> historialAmbitos = new ArrayList<>();
 
     // Manejador en memoria
     private final ManejadorSimbolos manejadorSimbolos = new ManejadorSimbolos();
@@ -522,7 +525,6 @@ public class Sintaxis {
         this.profCuerpo = 0;
         this.contadorAmbitos = 0;
         this.stackNiveles.clear();
-        this.historialAmbitos.clear();
         this.tokenAmbitos.clear();
         this.tokenScopeStacks.clear();
         this.lineaAmbitos.clear();
@@ -541,8 +543,6 @@ public class Sintaxis {
 
         int inicioPrg = (!tokens.isEmpty() && tokens.get(0).getLinea() > 0) ? tokens.get(0).getLinea() : 1;
         this.stackNiveles.push(0);
-        this.historialAmbitos.add("Creación ámbito: [0," + inicioPrg + "]");
-        this.historialAmbitos.add("Pila -> " + this.stackNiveles.toString().replace(" ", ""));
 
         Stack<String> pila = new Stack<>();
         pila.push(T_FIN);
@@ -608,9 +608,7 @@ public class Sintaxis {
         }
 
         if (!stackNiveles.isEmpty()) {
-            int eliminado = stackNiveles.pop();
-            historialAmbitos.add("Eliminación ámbito: [" + eliminado + "," + finalPrg + "]");
-            historialAmbitos.add("Pila -> " + stackNiveles.toString().replace(" ", ""));
+            stackNiveles.pop();
         }
 
         semantica.analizarExpresiones(tokens, manejadorSimbolos, stackNiveles, tokenScopeStacks, lineaScopeStacks);
@@ -638,16 +636,12 @@ public class Sintaxis {
         if (p.equals("M_AMB_OPEN") || p.equals("M_SCOPE_PUSH")) {
             contadorAmbitos++;
             stackNiveles.push(contadorAmbitos);
-            historialAmbitos.add("Creación ámbito: [" + contadorAmbitos + "," + nLin + "]");
-            historialAmbitos.add("Pila -> " + stackNiveles.toString().replace(" ", ""));
             return;
         }
 
         if (p.equals("M_AMB_CLOSE") || p.equals("M_SCOPE_POP")) {
             if (stackNiveles.size() > 1) {
-                int closed = stackNiveles.pop();
-                historialAmbitos.add("Eliminación ámbito: [" + closed + "," + nLin + "]");
-                historialAmbitos.add("Pila -> " + stackNiveles.toString().replace(" ", ""));
+                stackNiveles.pop();
             }
             return;
         }
@@ -1007,10 +1001,6 @@ public class Sintaxis {
         return res;
     }
 
-    public List<Semantica.EcuacionPrefijo> getPrefijos() {
-        return semantica.getPrefijos();
-    }
-
     public Semantica getSemantica() {
         return semantica;
     }
@@ -1021,60 +1011,5 @@ public class Sintaxis {
 
     public List<ZonaRegistro> getZonasRegistradas() {
         return zonasRegistradas;
-    }
-
-    public List<String> getHistorialAmbitos() {
-        return historialAmbitos;
-    }
-
-    public List<ConteoAmbito> generarResumenAmbitos(List<Tokens> allTokens) {
-        Map<Integer, ConteoAmbito> m = new HashMap<>();
-        for (EntidadSimbolo s : manejadorSimbolos.obtenerTodos()) {
-            ConteoAmbito c = m.computeIfAbsent(s.getNivelAmbito(), k -> new ConteoAmbito(k));
-            switch (s.getTipoDato()) {
-                case "decimal":
-                    c.sumarDec();
-                    break;
-                case "cadena":
-                    c.sumarCadena();
-                    break;
-                case "real":
-                    c.sumarReal();
-                    break;
-                // Add more depending on type logic
-            }
-        }
-        for (Map.Entry<Integer, Integer> fallos : fallosEnAmbitos.entrySet()) {
-            ConteoAmbito c = m.computeIfAbsent(fallos.getKey(), k -> new ConteoAmbito(k));
-            c.setContErrores(fallos.getValue());
-        }
-        List<ConteoAmbito> l = new ArrayList<>(m.values());
-        l.sort(Comparator.comparingInt(ConteoAmbito::getIdAmbito));
-        return l;
-    }
-
-    public void exportarZonasATxt(String filepath) throws IOException {
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(filepath))) {
-            bw.write("--- REGISTROS DE AREAS (DECLARACION / EJECUCION) ---");
-            bw.newLine();
-            bw.write(String.format("%-10s | %-16s | %-12s | %-12s | %-20s", "Linea", "Area", "Status", "Token",
-                    "Marcador"));
-            bw.newLine();
-            for (ZonaRegistro z : zonasRegistradas) {
-                bw.write(z.toFormatLine());
-                bw.newLine();
-            }
-        }
-    }
-
-    public void exportarHistorialATxt(String filepath) throws IOException {
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(filepath))) {
-            bw.write("--- CAMBIOS Y FLUJO DE AMBITOS ---");
-            bw.newLine();
-            for (String h : historialAmbitos) {
-                bw.write(h);
-                bw.newLine();
-            }
-        }
     }
 }

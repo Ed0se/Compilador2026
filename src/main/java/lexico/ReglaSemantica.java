@@ -11,11 +11,6 @@ public class ReglaSemantica {
     private final String lexema;
     private final int ambito;
 
-    public ReglaSemantica(int linea, int regla, String clave, String descripcion, String situacion, String lexema,
-            int ambito) {
-        this(linea, regla, clave, clave, lexema, descripcion, situacion, lexema, ambito);
-    }
-
     public ReglaSemantica(int linea, int regla, String clave, String topePila, String valorReal, String descripcion,
             String situacion, String lexema, int ambito) {
         this.linea = linea;
@@ -65,13 +60,9 @@ public class ReglaSemantica {
         return ambito;
     }
 
-    public String toTableLine() {
-        return String.format("%-6s | %-18s | %-15s | %-6d | %-9s | %d",
-                clave, topePila, valorReal, linea, situacion, ambito);
-    }
-
     @Override
     public String toString() {
-        return toTableLine();
+        return String.format("%s | %s | %s | L%d | %s | Amb%d",
+                clave, topePila, valorReal, linea, situacion, ambito);
     }
 }

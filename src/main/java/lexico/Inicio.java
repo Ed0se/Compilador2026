@@ -553,35 +553,6 @@ public class Inicio extends JFrame {
         worker.execute();
     }
 
-    private void generarAvance() {
-        if (parser == null) {
-            JOptionPane.showMessageDialog(this, "No hay datos para generar el avance. Compile primero.",
-                    "Sin datos",
-                    JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        JFileChooser fc = new JFileChooser();
-        FileNameExtensionFilter filtro = new FileNameExtensionFilter("Archivos de texto (*.txt)", "txt");
-        fc.setFileFilter(filtro);
-        fc.setAcceptAllFileFilterUsed(false);
-        fc.setSelectedFile(new File("Avance_Semantica1.txt"));
-        if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-            File dest = fc.getSelectedFile();
-            if (!dest.getName().toLowerCase().endsWith(".txt")) {
-                dest = new File(dest.getAbsolutePath() + ".txt");
-            }
-            try {
-                parser.getSemantica().exportarAvanceTxt(dest.getAbsolutePath());
-                JOptionPane.showMessageDialog(this, "Archivo de avance generado correctamente en:\n" + dest.getName(),
-                        "Éxito", JOptionPane.INFORMATION_MESSAGE);
-                setStatus("  Avance generado: " + dest.getName(), ACCENT_BLUE);
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Error al generar avance: " + ex.getMessage(), "Error",
-                        JOptionPane.ERROR_MESSAGE);
-            }
-        }
-    }
-
     private void generarExcel() {
         if (parser == null) {
             JOptionPane.showMessageDialog(this, "No hay datos para exportar. Compile primero.",
