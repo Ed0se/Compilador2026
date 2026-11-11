@@ -591,6 +591,7 @@ public class Inicio extends JFrame {
                 btnCompilar.setEnabled(true);
             }
         };
+
         worker.execute();
     }
 
