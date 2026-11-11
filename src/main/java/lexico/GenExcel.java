@@ -91,7 +91,7 @@ public class GenExcel {
             XSSFSheet sheetErrors = wb.createSheet("Errores");
             sheetErrors.setDisplayGridlines(false);
 
-            String[] errHeaders = { "Codigo", "Descripcion", "Lexema", "Tipo de error", "Linea" };
+            String[] errHeaders = { "Token", "Descripcion", "lexema", "tipo de error", "linea" };
             Row eh = sheetErrors.createRow(0);
             for (int i = 0; i < errHeaders.length; i++) {
                 Cell cell = eh.createCell(i);
@@ -102,7 +102,11 @@ public class GenExcel {
             int eIdx = 1;
             for (ErroresLex e : errors) {
                 Row row = sheetErrors.createRow(eIdx++);
-                row.createCell(0).setCellValue(e.getToken());
+                try {
+                    row.createCell(0).setCellValue(Double.parseDouble(e.getToken().trim()));
+                } catch (Exception ex) {
+                    row.createCell(0).setCellValue(e.getToken());
+                }
                 row.createCell(1).setCellValue(e.getDescripcion());
                 row.createCell(2).setCellValue(e.getLexema());
                 row.createCell(3).setCellValue(e.getTipoError());
@@ -112,33 +116,38 @@ public class GenExcel {
             if (sintaxisErrors != null) {
                 for (ErroresSin se : sintaxisErrors) {
                     Row row = sheetErrors.createRow(eIdx++);
-                    row.createCell(0).setCellValue(se.getCodigo());
-                    row.createCell(1).setCellValue(se.getDescripcion());
-                    row.createCell(2).setCellValue(se.getTerminal());
-
                     String codeStr = se.getCodigo();
                     int codeNum = -1;
                     try {
                         if (codeStr != null) {
                             codeNum = Integer.parseInt(codeStr.trim());
+                            row.createCell(0).setCellValue((double) codeNum);
+                        } else {
+                            row.createCell(0).setCellValue(se.getCodigo());
                         }
                     } catch (Exception ignored) {
+                        row.createCell(0).setCellValue(se.getCodigo());
                     }
+                    row.createCell(1).setCellValue(se.getDescripcion());
+                    row.createCell(2).setCellValue(se.getTerminal());
 
                     String tipo = "Error Sintaxis";
                     if (codeNum == 900 || codeNum == 901) {
                         tipo = "Error Ambito";
-                    } else if ((codeNum >= 2001 && codeNum <= 2018) || "Semántica 3".equalsIgnoreCase(se.getNoTerminal())
+                    } else if ((codeNum >= 2001 && codeNum <= 2018) || "Semantica3".equalsIgnoreCase(se.getNoTerminal())
+                            || "Semántica 3".equalsIgnoreCase(se.getNoTerminal())
                             || "Semantica 3".equalsIgnoreCase(se.getNoTerminal())) {
-                        tipo = "Semántica 3";
-                    } else if ((codeNum >= 1000 && codeNum < 2000) || "Semántica 2".equalsIgnoreCase(se.getNoTerminal())
+                        tipo = "Semantica3";
+                    } else if ((codeNum >= 1000 && codeNum < 2000) || "Semantica2".equalsIgnoreCase(se.getNoTerminal())
+                            || "Semántica 2".equalsIgnoreCase(se.getNoTerminal())
                             || "Semantica 2".equalsIgnoreCase(se.getNoTerminal())) {
-                        tipo = "Semántica 2";
-                    } else if (codeNum == 903 || codeNum == 904 || "Semántica 1".equalsIgnoreCase(se.getNoTerminal())
+                        tipo = "Semantica2";
+                    } else if (codeNum == 549 || codeNum == 903 || codeNum == 904 || "Semantica1".equalsIgnoreCase(se.getNoTerminal())
+                            || "Semántica 1".equalsIgnoreCase(se.getNoTerminal())
                             || "Semantica 1".equalsIgnoreCase(se.getNoTerminal())
                             || "Semantica".equalsIgnoreCase(se.getNoTerminal())
                             || codeNum >= 903) {
-                        tipo = "Semántica 1";
+                        tipo = "Semantica1";
                     }
                     row.createCell(3).setCellValue(tipo);
                     row.createCell(4).setCellValue(se.getLinea());
@@ -524,7 +533,7 @@ public class GenExcel {
                 sheetEval.setColumnWidth(i, 3500);
             }
 
-            XSSFSheet sheetSemantica = wb.createSheet("Semantica");
+            XSSFSheet sheetSemantica = wb.createSheet("Semantica 1");
             sheetSemantica.setDisplayGridlines(true);
 
             String[] semHeaders = { "Linea", "TBin", "TDec", "TOct", "THex", "TReal", "Texp", "TCadena", "TBoolean",
@@ -569,9 +578,7 @@ public class GenExcel {
                 }
             }
 
-            // Create some blank rows to match formatting from picture if needed, but not
-            // strictly necessary. Let's just create the total row.
-            Row rowTot = sheetSemantica.createRow(semIdx + 1); // Leaving one empty row just in case.
+            Row rowTot = sheetSemantica.createRow(semIdx);
             rowTot.createCell(0).setCellValue("Totales");
             rowTot.createCell(1).setCellValue(totBin);
             rowTot.createCell(2).setCellValue(totDec);
@@ -590,12 +597,12 @@ public class GenExcel {
             }
 
             wb.setSheetOrder("Tabla de simbolos", wb.getNumberOfSheets() - 2);
-            wb.setSheetOrder("Semantica", wb.getNumberOfSheets() - 1);
+            wb.setSheetOrder("Semantica 1", wb.getNumberOfSheets() - 1);
 
             // ── Semantica 2-Base ──────────────────────────────────────────────────
             XSSFSheet sheetSem2Base = wb.createSheet("Semantica 2-Base");
             sheetSem2Base.setDisplayGridlines(true);
-            String[] sem2BaseHeaders = { "Regla", "Función", "Tope de Pila", "Valor Real", "Linea", "Estado", "Ambito" };
+            String[] sem2BaseHeaders = { "Regla", "Función", "Tope Pila", "Valor Real", "Linea", "Edo", "Ambito" };
             Row sem2BaseHeaderRow = sheetSem2Base.createRow(0);
             for (int i = 0; i < sem2BaseHeaders.length; i++) {
                 Cell cell = sem2BaseHeaderRow.createCell(i);

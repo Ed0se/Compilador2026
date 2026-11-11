@@ -40,6 +40,7 @@ public class Semantica {
     private List<ErroresSin> erroresSemanticos = new ArrayList<>();
     private Map<Integer, ConteoTemporales> conteosPorLinea = new HashMap<>();
     private List<ReglaSemantica> reglasSemanticas = new ArrayList<>();
+    private boolean isEvaluatingAssignment = false;
 
     public static final String[] FILAS_T2 = {
             "CLEAR", "chr", "chr_p1", "concat", "concat_p1", "concat_p2",
@@ -99,7 +100,12 @@ public class Semantica {
     }
 
     public List<ConteoTemporales> getConteos() {
-        List<ConteoTemporales> res = new ArrayList<>(conteosPorLinea.values());
+        List<ConteoTemporales> res = new ArrayList<>();
+        for (ConteoTemporales c : conteosPorLinea.values()) {
+            if (c.asignaciones > 0) {
+                res.add(c);
+            }
+        }
         res.sort(Comparator.comparingInt(c -> c.linea));
         return res;
     }
@@ -130,6 +136,8 @@ public class Semantica {
             return "boolean";
         if (t.equals("variant"))
             return "variant";
+        if (t.equals("void"))
+            return "void";
         return "variant";
     }
 
@@ -152,7 +160,9 @@ public class Semantica {
         if (t.equals("cadena") || t.equals("string"))
             return "Cadena";
         if (t.equals("boolean") || t.equals("bool") || t.equals("logica"))
-            return "Logica";
+            return "Boolean";
+        if (t.equals("void"))
+            return "Void";
         return "Variant";
     }
 
@@ -192,7 +202,6 @@ public class Semantica {
             erroresSemanticos.add(new ErroresSin("903", "Semántica 1", op, desc, linea));
             return new ResultadoSemantica("variant", true, desc);
         } else {
-            incrementarTemporal(conteo, tipoRes);
             return new ResultadoSemantica(tipoRes, false, "");
         }
     }
@@ -202,14 +211,10 @@ public class Semantica {
         tipoExpr = normalizeType(tipoExpr);
 
         ConteoTemporales conteo = getConteo(linea);
-        conteo.asignaciones++;
+        conteo.asignaciones = 1;
 
-        String tipoFormat = formatTipo(tipoExpr);
-        if (conteo.detalleAsignacion.isEmpty()) {
-            conteo.detalleAsignacion = lexVar + " -> " + tipoFormat;
-        } else {
-            conteo.detalleAsignacion += ", " + lexVar + " -> " + tipoFormat;
-        }
+        String tipoFormat = formatTSem2(tipoExpr);
+        conteo.detalleAsignacion = lexVar + " -> " + tipoFormat;
 
         if (tipoExpr.equals("variant") || tipoVar.equals("variant")) {
             return new ResultadoSemantica("variant", false, ""); // Evita cascada
@@ -232,9 +237,9 @@ public class Semantica {
 
         if (!valida) {
             conteo.errores++;
-            String desc = "Incompatibilidad en la asignación: no se puede asignar " + tipoExpr + " a la variable '"
-                    + lexVar + "' de tipo " + tipoVar;
-            erroresSemanticos.add(new ErroresSin("904", "Semántica 1", "=", desc, linea));
+            String desc = "ERROR: No se puede asignar un valor de tipo " + formatTipo(tipoExpr) + " a "
+                    + lexVar + ", que es de tipo " + formatTipo(tipoVar) + ".";
+            erroresSemanticos.add(new ErroresSin("549", "Semantica1", lexVar + " = " + tipoFormat, desc, linea));
             return new ResultadoSemantica("variant", true, desc);
         }
         return new ResultadoSemantica(tipoVar, false, "");
@@ -589,7 +594,6 @@ public class Semantica {
                         erroresSemanticos.add(new ErroresSin("903", "Semántica 1", c, desc, linea));
                         stackTipo.push("variant");
                     } else {
-                        incrementarTemporal(conteo, resTipo);
                         stackTipo.push(resTipo);
                     }
 
@@ -979,7 +983,8 @@ public class Semantica {
         FIRMAS_SEM3.put("sqrt", new FirmaFuncionSem3("sqrt", 1, new int[] { 2002 },
                 new String[] { "TDec/TReal/TExp/id" }, 2012, "TExp"));
         FIRMAS_SEM3.put("pow", new FirmaFuncionSem3("pow", 2, new int[] { 2003, 2004 },
-                new String[] { "TBin/TDec/TOct/THex/TReal/TExp/id", "TDec/id" }, 2013, "Tipo numérico permitido"));
+                new String[] { "TBin/TDec/TOct/THex/TReal/TExp/id", "TDec/id" }, 2013,
+                "TBin/TDec/TOct/THex/TReal/TExp"));
         FIRMAS_SEM3.put("sqrtv", new FirmaFuncionSem3("sqrtv", 2, new int[] { 2002, 2004 },
                 new String[] { "TDec/TReal/TExp/id", "TDec/id" }, 2012, "TExp"));
         FIRMAS_SEM3.put("strlen",
@@ -989,9 +994,10 @@ public class Semantica {
         FIRMAS_SEM3.put("copy", new FirmaFuncionSem3("copy", 2, new int[] { 2006, 2005 },
                 new String[] { "id TCadena", "TCadena/id" }, 2011, "TVoid"));
         FIRMAS_SEM3.put("val", new FirmaFuncionSem3("val", 3, new int[] { 2007, 2007, 2004 },
-                new String[] { "id Base Num", "id Base Num", "TDec/id" }, 2011, "TVoid"));
+                new String[] { "id TBin/TDec/TOct/THex", "id TBin/TDec/TOct/THex", "TDec(2,8,10,16)/id" }, 2011,
+                "TVoid"));
         FIRMAS_SEM3.put("str", new FirmaFuncionSem3("str", 2, new int[] { 2008, 2006 },
-                new String[] { "TBin/TDec/TOct/THex/TReal/TExp/TBoolean", "id TCadena" }, 2016, "TBoolean"));
+                new String[] { "TBin/TDec/TOct/THex/TReal/TExp/TBoolean/id", "id TCadena" }, 2016, "TBoolean"));
         FIRMAS_SEM3.put("sin", new FirmaFuncionSem3("sin", 1, new int[] { 2002 },
                 new String[] { "TDec/TReal/TExp/id" }, 2012, "TExp"));
         FIRMAS_SEM3.put("cos", new FirmaFuncionSem3("cos", 1, new int[] { 2002 },
@@ -1001,27 +1007,27 @@ public class Semantica {
         FIRMAS_SEM3.put("chr", new FirmaFuncionSem3("chr", 1, new int[] { 2009 },
                 new String[] { "TBin/TDec/TOct/THex/id" }, 2015, "TCadena"));
         FIRMAS_SEM3.put("pred",
-                new FirmaFuncionSem3("pred", 1, new int[] { 2010 }, new String[] { "id TReal/TExp" }, 2017,
+                new FirmaFuncionSem3("pred", 1, new int[] { 2010 }, new String[] { "TReal/TExp/id" }, 2017,
                         "TReal/TExp"));
         FIRMAS_SEM3.put("succ",
-                new FirmaFuncionSem3("succ", 1, new int[] { 2010 }, new String[] { "id TReal/TExp" }, 2017,
+                new FirmaFuncionSem3("succ", 1, new int[] { 2010 }, new String[] { "TReal/TExp/id" }, 2017,
                         "TReal/TExp"));
         FIRMAS_SEM3.put("inc",
                 new FirmaFuncionSem3("inc", 1, new int[] { 2009 }, new String[] { "TBin/TDec/TOct/THex/id" }, 2018,
-                        "TInt"));
+                        "TBin/TDec/TOct/THex"));
         FIRMAS_SEM3.put("dec",
                 new FirmaFuncionSem3("dec", 1, new int[] { 2009 }, new String[] { "TBin/TDec/TOct/THex/id" }, 2018,
-                        "TInt"));
+                        "TBin/TDec/TOct/THex"));
         FIRMAS_SEM3.put("sqr", new FirmaFuncionSem3("sqr", 1, new int[] { 2002 },
                 new String[] { "TDec/TReal/TExp/id" }, 2012, "TExp"));
     }
 
     private boolean verificarTipoParametro(int cve, String tipo) {
-        if (tipo == null)
+        if (tipo == null || tipo.equalsIgnoreCase("void"))
             return false;
         String t = normalizeType(tipo);
         if (t.equals("variant"))
-            return false;
+            return true;
         switch (cve) {
             case 2002: // TDec/TReal/TExp/id
                 return t.equals("dec") || t.equals("real") || t.equals("exp");
@@ -1050,12 +1056,35 @@ public class Semantica {
     private boolean esParametroRequiereId(String paramName) {
         return paramName.equals("inc_p1")
                 || paramName.equals("dec_p1")
-                || paramName.equals("pred_p1")
-                || paramName.equals("succ_p1")
                 || paramName.equals("copy_p1")
                 || paramName.equals("str_p2")
                 || paramName.equals("val_p1")
                 || paramName.equals("val_p2");
+    }
+
+    private String getDescTiposCve(int cve, String fallback) {
+        switch (cve) {
+            case 2002:
+                return "Dec, Real, Exp";
+            case 2003:
+                return "Bin, Dec, Oct, Hex, Real, Exp";
+            case 2004:
+                return "Dec";
+            case 2005:
+                return "Cadena";
+            case 2006:
+                return "Cadena";
+            case 2007:
+                return "Bin, Dec, Oct, Hex";
+            case 2008:
+                return "Bin, Dec, Oct, Hex, Real, Exp, Boolean";
+            case 2009:
+                return "Bin, Dec, Oct, Hex";
+            case 2010:
+                return "Real, Exp";
+            default:
+                return fallback;
+        }
     }
 
     private ValTipo evaluarFuncionPredefinidaSem3(Tokens funTk, List<List<Tokens>> argTokensList,
@@ -1088,24 +1117,24 @@ public class Semantica {
                 }
             }
             boolean invocacionValida = (cantArgs == 0);
-            String valRealInvoc = invocacionValida ? "CLEAR()" : "CLEAR(args)";
-            emitReglaSem3(ln, 2001, "CLEAR", "CLEAR()", valRealInvoc, invocacionValida, amb);
             if (!invocacionValida) {
-                erroresSemanticos.add(new ErroresSin("2001", "Semántica 3", "CLEAR",
+                String valRealInvoc = "CLEAR(args)";
+                emitReglaSem3(ln, 2001, "CLEAR", "CLEAR()", valRealInvoc, false, amb);
+                erroresSemanticos.add(new ErroresSin("2001", "Semantica3", "CLEAR",
                         "La función CLEAR no recibe argumentos", ln));
             }
 
             boolean salidaValida = invocacionValida && (!isUsedInValueContext);
             emitReglaSem3(ln, 2011, "CLEAR", "TVoid", "TVoid", salidaValida, amb);
             if (isUsedInValueContext) {
-                erroresSemanticos.add(new ErroresSin("2011", "Semántica 3", "CLEAR",
+                erroresSemanticos.add(new ErroresSin("2011", "Semantica3", "CLEAR",
                         "Función void no puede ser utilizada como valor en una expresión", ln));
             }
 
             ConteoT2 cClear = conteosT2.get("CLEAR");
             if (cClear != null) {
                 cClear.salida = (cClear.salida == null ? 0 : cClear.salida) + 1;
-                if (invocacionValida && salidaValida) {
+                if (salidaValida) {
                     cClear.aceptados++;
                 } else {
                     cClear.errores++;
@@ -1145,7 +1174,13 @@ public class Semantica {
                 if (stripped.size() == 1) {
                     Tokens st = stripped.get(0);
                     String stlx = st.getLexema();
-                    if (st.getTipo().startsWith("Identificador") || (esId(stlx) && !esPalabraClave(stlx))) {
+                    if (st.getTipo().startsWith("Identificador")) {
+                        isId = true;
+                        idLex = stlx;
+                    } else if (!st.getTipo().startsWith("Constante")
+                            && !st.getTipo().startsWith("Palabra")
+                            && !st.getTipo().startsWith("Operador")
+                            && esId(stlx) && !esPalabraClave(stlx)) {
                         isId = true;
                         idLex = stlx;
                     }
@@ -1155,10 +1190,8 @@ public class Semantica {
                 boolean paramAceptado = true;
                 String errorDesc = null;
 
-                if (requiereId && !isId) {
-                    paramAceptado = false;
-                    errorDesc = "El parámetro " + pName + " requiere un identificador";
-                } else if (isId) {
+                String argTipo = aVt.tipo;
+                if (isId) {
                     EntidadSimbolo sym = (ms != null) ? ms.buscarEnContexto(idLex, scopes) : null;
                     if (sym == null && ms != null) {
                         sym = ms.buscarEnNivel(idLex, 0);
@@ -1170,18 +1203,19 @@ public class Semantica {
                         paramAceptado = false;
                         errorDesc = "Identificador no declarado: " + idLex;
                     } else {
-                        String idTipo = normalizeType(sym.getTipoDato());
-                        if (!verificarTipoParametro(cve, idTipo)) {
-                            paramAceptado = false;
-                            errorDesc = "Tipo incompatible para " + pName + ": se esperaba " + topePila
-                                    + ", se obtuvo " + formatTSem2(idTipo);
-                        }
+                        argTipo = normalizeType(sym.getTipoDato());
                     }
-                } else {
-                    if (!verificarTipoParametro(cve, aVt.tipo)) {
+                }
+
+                if (paramAceptado) {
+                    if (!verificarTipoParametro(cve, argTipo)) {
                         paramAceptado = false;
-                        errorDesc = "Tipo incompatible para " + pName + ": se esperaba " + topePila
-                                + ", se obtuvo " + formatTSem2(aVt.tipo);
+                        String descTipos = getDescTiposCve(cve, topePila);
+                        String rec = formatTipo(argTipo);
+                        errorDesc = "ERROR: " + pName + ": requiere " + descTipos + "; recibido " + rec + ".";
+                    } else if (requiereId && !isId) {
+                        paramAceptado = false;
+                        errorDesc = "ERROR: " + pName + ": requiere un identificador.";
                     }
                 }
 
@@ -1191,7 +1225,8 @@ public class Semantica {
 
                 emitReglaSem3(ln, cve, pName, topePila, aVt.valor, paramAceptado, amb);
                 if (!paramAceptado) {
-                    erroresSemanticos.add(new ErroresSin(String.valueOf(cve), "Semántica 3", pName, errorDesc, ln));
+                    erroresSemanticos.add(new ErroresSin(String.valueOf(cve), "Semantica3", pName + ": " + aVt.valor,
+                            errorDesc, ln));
                 }
 
                 if (cParam != null) {
@@ -1207,10 +1242,10 @@ public class Semantica {
                 anyParamError = true;
                 String valReal = "-";
                 boolean paramAceptado = false;
-                String errorDesc = "Falta el parámetro requerido " + pName;
+                String errorDesc = "ERROR: " + pName + ": falta el parámetro requerido.";
 
                 emitReglaSem3(ln, cve, pName, topePila, valReal, paramAceptado, amb);
-                erroresSemanticos.add(new ErroresSin(String.valueOf(cve), "Semántica 3", pName, errorDesc, ln));
+                erroresSemanticos.add(new ErroresSin(String.valueOf(cve), "Semantica3", pName, errorDesc, ln));
 
                 if (cParam != null) {
                     cParam.entradas = (cParam.entradas == null ? 0 : cParam.entradas) + 1;
@@ -1235,9 +1270,9 @@ public class Semantica {
 
         // Void functions: copy, val (CVE 2011)
         if (retCve == 2011) {
-            boolean retAceptado = (!anyParamError) && (!isUsedInValueContext);
+            boolean retAceptado = !isUsedInValueContext;
             if (isUsedInValueContext) {
-                erroresSemanticos.add(new ErroresSin(String.valueOf(retCve), "Semántica 3", canon,
+                erroresSemanticos.add(new ErroresSin(String.valueOf(retCve), "Semantica3", canon,
                         "Función void no puede ser utilizada como valor en una expresión", ln));
             }
             emitReglaSem3(ln, retCve, canon, "TVoid", "TVoid", retAceptado, amb);
@@ -1252,130 +1287,57 @@ public class Semantica {
             return new ValTipo(canon, "void");
         }
 
-        // Numeric return: pow (CVE 2013)
+        String returnType;
         if (retCve == 2013) {
-            String p1Tipo = (argVts.size() > 0) ? argVts.get(0).tipo : "dec";
-            String returnType = normalizeType(p1Tipo);
-            if (!verificarTipoParametro(2003, returnType)) {
-                returnType = "dec";
+            String p1Tipo = (!argVts.isEmpty()) ? normalizeType(argVts.get(0).tipo) : "dec";
+            if (p1Tipo.equals("bin") || p1Tipo.equals("dec") || p1Tipo.equals("oct") || p1Tipo.equals("hex")
+                    || p1Tipo.equals("real") || p1Tipo.equals("exp")) {
+                returnType = p1Tipo;
+            } else {
+                returnType = "exp";
             }
             String valReal = formatTSem2(returnType);
-            boolean retAceptado = !anyParamError;
-            emitReglaSem3(ln, retCve, canon, "Tipo numérico permitido", valReal, retAceptado, amb);
-            if (cFunc != null) {
-                cFunc.salida = (cFunc.salida == null ? 0 : cFunc.salida) + 1;
-                if (retAceptado) {
-                    cFunc.aceptados++;
-                } else {
-                    cFunc.errores++;
-                }
-            }
-            return new ValTipo(canon, returnType);
-        }
-
-        // Real/Exp return: pred, succ (CVE 2017)
-        if (retCve == 2017) {
-            String p1Tipo = (argVts.size() > 0) ? argVts.get(0).tipo : "real";
-            String returnType = normalizeType(p1Tipo);
-            if (!returnType.equals("exp")) {
-                returnType = "real";
-            }
+            emitReglaSem3(ln, retCve, canon, "TBin/TDec/TOct/THex/TReal/TExp", valReal, true, amb);
+        } else if (retCve == 2017) {
+            String p1Tipo = (!argVts.isEmpty()) ? normalizeType(argVts.get(0).tipo) : "real";
+            returnType = p1Tipo.equals("real") ? "real" : "exp";
             String valReal = formatTSem2(returnType);
-            boolean retAceptado = !anyParamError;
-            emitReglaSem3(ln, retCve, canon, "TReal/TExp", valReal, retAceptado, amb);
-            if (cFunc != null) {
-                cFunc.salida = (cFunc.salida == null ? 0 : cFunc.salida) + 1;
-                if (retAceptado) {
-                    cFunc.aceptados++;
-                } else {
-                    cFunc.errores++;
-                }
-            }
-            return new ValTipo(canon, returnType);
-        }
-
-        // Int return: inc, dec (CVE 2018)
-        if (retCve == 2018) {
-            String p1Tipo = (argVts.size() > 0) ? argVts.get(0).tipo : "dec";
-            String returnType = normalizeType(p1Tipo);
-            if (!esTipoEntero(returnType)) {
-                returnType = "dec";
-            }
+            emitReglaSem3(ln, retCve, canon, "TReal/TExp", valReal, true, amb);
+        } else if (retCve == 2018) {
+            String p1Tipo = (!argVts.isEmpty()) ? normalizeType(argVts.get(0).tipo) : "dec";
+            returnType = esTipoEntero(p1Tipo) ? p1Tipo : "dec";
             String valReal = formatTSem2(returnType);
-            boolean retAceptado = !anyParamError;
-            emitReglaSem3(ln, retCve, canon, "TInt", valReal, retAceptado, amb);
-            if (cFunc != null) {
-                cFunc.salida = (cFunc.salida == null ? 0 : cFunc.salida) + 1;
-                if (retAceptado) {
-                    cFunc.aceptados++;
-                } else {
-                    cFunc.errores++;
-                }
-            }
-            return new ValTipo(canon, returnType);
+            emitReglaSem3(ln, retCve, canon, "TBin/TDec/TOct/THex", valReal, true, amb);
+        } else if (retCve == 2012) {
+            returnType = "exp";
+            emitReglaSem3(ln, retCve, canon, "TExp", "TExp", true, amb);
+        } else if (retCve == 2014) {
+            returnType = "dec";
+            emitReglaSem3(ln, retCve, canon, "TDec", "TDec", true, amb);
+        } else if (retCve == 2015) {
+            returnType = "cadena";
+            emitReglaSem3(ln, retCve, canon, "TCadena", "TCadena", true, amb);
+        } else if (retCve == 2016) {
+            returnType = "boolean";
+            emitReglaSem3(ln, retCve, canon, "TBoolean", "TBoolean", true, amb);
+        } else {
+            returnType = "variant";
         }
 
-        // CVE 2012 (TExp): sqrt, sqrtv, sin, cos, tan, sqr
-        if (retCve == 2012) {
-            boolean retAceptado = !anyParamError;
-            emitReglaSem3(ln, retCve, canon, "TExp", "TExp", retAceptado, amb);
-            if (cFunc != null) {
-                cFunc.salida = (cFunc.salida == null ? 0 : cFunc.salida) + 1;
-                if (retAceptado) {
-                    cFunc.aceptados++;
-                } else {
-                    cFunc.errores++;
-                }
-            }
-            return new ValTipo(canon, "exp");
+        if (cFunc != null) {
+            cFunc.salida = (cFunc.salida == null ? 0 : cFunc.salida) + 1;
+            cFunc.aceptados++;
         }
 
-        // CVE 2014 (TDec): strlen
-        if (retCve == 2014) {
-            boolean retAceptado = !anyParamError;
-            emitReglaSem3(ln, retCve, canon, "TDec", "TDec", retAceptado, amb);
-            if (cFunc != null) {
-                cFunc.salida = (cFunc.salida == null ? 0 : cFunc.salida) + 1;
-                if (retAceptado) {
-                    cFunc.aceptados++;
-                } else {
-                    cFunc.errores++;
-                }
-            }
-            return new ValTipo(canon, "dec");
+        if (isEvaluatingAssignment && !returnType.equals("void") && !returnType.equals("variant")) {
+            ConteoTemporales cSem1 = getConteo(ln);
+            incrementarTemporal(cSem1, returnType);
         }
 
-        // CVE 2015 (TCadena): concat, chr
-        if (retCve == 2015) {
-            boolean retAceptado = !anyParamError;
-            emitReglaSem3(ln, retCve, canon, "TCadena", "TCadena", retAceptado, amb);
-            if (cFunc != null) {
-                cFunc.salida = (cFunc.salida == null ? 0 : cFunc.salida) + 1;
-                if (retAceptado) {
-                    cFunc.aceptados++;
-                } else {
-                    cFunc.errores++;
-                }
-            }
-            return new ValTipo(canon, "cadena");
-        }
-
-        // CVE 2016 (TBoolean): str
-        if (retCve == 2016) {
-            boolean retAceptado = !anyParamError;
-            emitReglaSem3(ln, retCve, canon, "TBoolean", "TBoolean", retAceptado, amb);
-            if (cFunc != null) {
-                cFunc.salida = (cFunc.salida == null ? 0 : cFunc.salida) + 1;
-                if (retAceptado) {
-                    cFunc.aceptados++;
-                } else {
-                    cFunc.errores++;
-                }
-            }
-            return new ValTipo(canon, "boolean");
-        }
-
-        return new ValTipo(canon, "variant");
+        String tName = formatTSem2(returnType);
+        int cnt = tempTypeCounts.getOrDefault(tName, 0) + 1;
+        tempTypeCounts.put(tName, cnt);
+        return new ValTipo(tName + cnt, returnType);
     }
 
     private String determinarTipo(String lexema) {
@@ -1623,9 +1585,6 @@ public class Semantica {
         reglasSemanticas
                 .add(new ReglaSemantica(linea, numRegla, clave, "-", topePila, valorReal, desc, estado, valorReal,
                         ambito));
-        if (!aceptada) {
-            erroresSemanticos.add(new ErroresSin(clave, "Semántica 2", valorReal, desc, linea));
-        }
     }
 
     private void emitReglaSem3(int linea, int cve, String funcion, String topePila, String valorReal,
@@ -1735,10 +1694,16 @@ public class Semantica {
                 } else if (firstLex.equals("!")) {
                     boolean ok = subVt.tipo.equals("boolean") || subVt.tipo.equals("variant");
                     emitReglaSem2(ln, 7, "1070", "TBoolean", subVt.valor, ok, amb);
+                    if (isEvaluatingAssignment) {
+                        incrementarTemporal(getConteo(ln), "boolean");
+                    }
                     return new ValTipo(subVt.valor, "boolean");
                 } else {
                     boolean ok = esTipoEntero(subVt.tipo) || subVt.tipo.equals("variant");
                     emitReglaSem2(ln, 7, "1070", "TDec/TBin/TOct/THex", subVt.valor, ok, amb);
+                    if (isEvaluatingAssignment && esTipoEntero(subVt.tipo)) {
+                        incrementarTemporal(getConteo(ln), subVt.tipo);
+                    }
                     return new ValTipo(subVt.valor, ok ? subVt.tipo : "variant");
                 }
             }
@@ -1878,6 +1843,11 @@ public class Semantica {
                 String resTipo = resolverTipoOperacion(left.tipo, atom.op, right.tipo);
                 if ("error".equals(resTipo)) {
                     resTipo = "variant";
+                }
+                if (isEvaluatingAssignment && !resTipo.equals("variant") && !resTipo.equals("void")
+                        && !resTipo.equals("error")) {
+                    ConteoTemporales cSem1 = getConteo(ln);
+                    incrementarTemporal(cSem1, resTipo);
                 }
                 String tName = formatTSem2(resTipo);
                 int cnt = tempTypeCounts.getOrDefault(tName, 0) + 1;
@@ -2117,8 +2087,10 @@ public class Semantica {
         }
         emitReglaSem2(ln, 9, "1090", "Var/Par/Arr", baseId, esValido1090, amb);
 
+        isEvaluatingAssignment = true;
         ValTipo rhsVt = evaluarExpresionSem2(rhsTokens, ms, tokenAmbitos, tokenScopeStacks, lineaAmbitos,
                 lineaScopeStacks, tempTypeCounts);
+        isEvaluatingAssignment = false;
 
         String tipoDest = deducirTipoSem2(baseId, ms, scopes);
         String clave = "1020";
@@ -2146,6 +2118,26 @@ public class Semantica {
             }
         }
         emitReglaSem2(ln, 2, clave, formatTSem2(tipoDest), rhsVt.valor, valida, amb);
+
+        // Update Semántica 1 assignment details and errors
+        ConteoTemporales conteo = getConteo(ln);
+        conteo.asignaciones = 1;
+        conteo.detalleAsignacion = baseId + " -> " + formatTSem2(rhsVt.tipo);
+        if (!valida) {
+            conteo.errores = 1;
+            boolean alreadyReported = false;
+            for (ErroresSin err : erroresSemanticos) {
+                if (err.getLinea() == ln && "549".equals(err.getCodigo())) {
+                    alreadyReported = true;
+                    break;
+                }
+            }
+            if (!alreadyReported) {
+                String desc = "ERROR: No se puede asignar un valor de tipo " + formatTipo(rhsVt.tipo) + " a " + baseId
+                        + ", que es de tipo " + formatTipo(tipoDest) + ".";
+                erroresSemanticos.add(new ErroresSin("549", "Semantica1", baseId + " = " + rhsVt.valor, desc, ln));
+            }
+        }
     }
 
     private int findTopLevelAssignment(List<Tokens> list) {
@@ -2573,20 +2565,36 @@ public class Semantica {
 
                             // Part 1: 1080
                             List<Tokens> part1 = parts.size() > 0 ? parts.get(0) : Collections.emptyList();
-                            boolean esAsig = false;
-                            String initId = "-";
-                            for (Tokens tk : part1) {
-                                String lx = tk.getLexema();
-                                if (initId.equals("-") && !lx.equalsIgnoreCase("var")
-                                        && (tk.getTipo().startsWith("Identificador") || (esId(lx) && !esPalabraClave(lx)))) {
-                                    initId = lx;
+                            String part1Str = "";
+                            if (!part1.isEmpty()) {
+                                StringBuilder sb = new StringBuilder();
+                                for (int pIdx = 0; pIdx < part1.size(); pIdx++) {
+                                    if (pIdx > 0)
+                                        sb.append(" ");
+                                    sb.append(part1.get(pIdx).getLexema());
                                 }
-                                if (lx.equals("=") || lx.equals("+=") || lx.equals("-=") || lx.equals("*=")
-                                        || lx.equals("/=")) {
-                                    esAsig = true;
+                                part1Str = sb.toString();
+
+                                int eqIdx = -1;
+                                for (int pIdx = 0; pIdx < part1.size(); pIdx++) {
+                                    if (part1.get(pIdx).getLexema().equals("=")) {
+                                        eqIdx = pIdx;
+                                        break;
+                                    }
+                                }
+                                if (eqIdx != -1 && eqIdx + 1 < part1.size()) {
+                                    List<Tokens> rhsPart1 = part1.subList(eqIdx + 1, part1.size());
+                                    isEvaluatingAssignment = true;
+                                    ValTipo rhsVt = evaluarExpresionSem2(rhsPart1, true, ms, tokenAmbitos, tokenScopeStacks, lineaAmbitos,
+                                            lineaScopeStacks, tempTypeCounts);
+                                    isEvaluatingAssignment = false;
+                                    ConteoTemporales conteo = getConteo(ln);
+                                    conteo.asignaciones = 1;
+                                    String targetId = part1.get(eqIdx > 0 ? eqIdx - 1 : 0).getLexema();
+                                    conteo.detalleAsignacion = targetId + " -> " + formatTSem2(rhsVt.tipo);
                                 }
                             }
-                            emitReglaSem2(ln, 8, "1080", "id", initId, esAsig, ambFor);
+                            emitReglaSem2(ln, 8, "1080", "id", part1Str.isEmpty() ? "-" : part1Str, true, ambFor);
 
                             // Part 2: 1081
                             List<Tokens> part2 = parts.size() > 1 ? parts.get(1) : Collections.emptyList();
@@ -2607,7 +2615,7 @@ public class Semantica {
                                     procesarAsignacionSem2(part3, asigIdx, ms, tokenAmbitos, tokenScopeStacks,
                                             lineaAmbitos, lineaScopeStacks, tempTypeCounts);
                                     String targetId = part3.get(0).getLexema();
-                                    emitReglaSem2(ln, 8, "1082", "++/--", targetId, false, ambFor);
+                                    emitReglaSem2(ln, 8, "1082", "TDec", targetId, false, ambFor);
                                 } else {
                                     ValTipo stepVt = evaluarExpresionSem2(part3, ms, tokenAmbitos, tokenScopeStacks,
                                             lineaAmbitos, lineaScopeStacks, tempTypeCounts);
@@ -2619,10 +2627,10 @@ public class Semantica {
                                             break;
                                         }
                                     }
-                                    emitReglaSem2(ln, 8, "1082", "++/--", stepVt.valor, hasIncDec, ambFor);
+                                    emitReglaSem2(ln, 8, "1082", formatTSem2(stepVt.tipo), stepVt.valor, hasIncDec, ambFor);
                                 }
                             } else {
-                                emitReglaSem2(ln, 8, "1082", "++/--", "-", false, ambFor);
+                                emitReglaSem2(ln, 8, "1082", "TDec", "-", false, ambFor);
                             }
                         }
 

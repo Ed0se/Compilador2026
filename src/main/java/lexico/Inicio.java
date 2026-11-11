@@ -493,13 +493,16 @@ public class Inicio extends JFrame {
                             String tipoError = "Error Sintaxis";
                             if (codeNum == 900 || codeNum == 901) {
                                 tipoError = "Error Ambito";
-                            } else if ((codeNum >= 2001 && codeNum <= 2018) || "Semántica 3".equalsIgnoreCase(se.getNoTerminal())
+                            } else if ((codeNum >= 2001 && codeNum <= 2018)
+                                    || "Semántica 3".equalsIgnoreCase(se.getNoTerminal())
                                     || "Semantica 3".equalsIgnoreCase(se.getNoTerminal())) {
                                 tipoError = "Semántica 3";
-                            } else if ((codeNum >= 1000 && codeNum < 2000) || "Semántica 2".equalsIgnoreCase(se.getNoTerminal())
+                            } else if ((codeNum >= 1000 && codeNum < 2000)
+                                    || "Semántica 2".equalsIgnoreCase(se.getNoTerminal())
                                     || "Semantica 2".equalsIgnoreCase(se.getNoTerminal())) {
                                 tipoError = "Semántica 2";
-                            } else if (codeNum == 903 || codeNum == 904 || "Semántica 1".equalsIgnoreCase(se.getNoTerminal())
+                            } else if (codeNum == 903 || codeNum == 904
+                                    || "Semántica 1".equalsIgnoreCase(se.getNoTerminal())
                                     || "Semantica 1".equalsIgnoreCase(se.getNoTerminal())
                                     || "Semantica".equalsIgnoreCase(se.getNoTerminal())
                                     || codeNum >= 903) {
@@ -524,7 +527,8 @@ public class Inicio extends JFrame {
                     } else {
                         for (ZonaRegistro z : zonas) {
                             scopeTableModel.addRow(new Object[] {
-                                    z.getNumLinea(), z.getCategoria(), z.getEstado(), z.getTokenID(), z.getIndicadorSec()
+                                    z.getNumLinea(), z.getCategoria(), z.getEstado(), z.getTokenID(),
+                                    z.getIndicadorSec()
                             });
                         }
                     }
