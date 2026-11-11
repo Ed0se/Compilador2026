@@ -189,7 +189,7 @@ public class Semantica {
             conteo.tVariant++;
             String desc = "Incompatibilidad entre operandos: " + lexIzq + " (" + tipoIzq + ") " + op + " " + lexDer
                     + " (" + tipoDer + ")";
-            erroresSemanticos.add(new ErroresSin("903", "Semantica", op, desc, linea));
+            erroresSemanticos.add(new ErroresSin("903", "Semántica 1", op, desc, linea));
             return new ResultadoSemantica("variant", true, desc);
         } else {
             incrementarTemporal(conteo, tipoRes);
@@ -234,7 +234,7 @@ public class Semantica {
             conteo.errores++;
             String desc = "Incompatibilidad en la asignación: no se puede asignar " + tipoExpr + " a la variable '"
                     + lexVar + "' de tipo " + tipoVar;
-            erroresSemanticos.add(new ErroresSin("904", "Semantica", "=", desc, linea));
+            erroresSemanticos.add(new ErroresSin("904", "Semántica 1", "=", desc, linea));
             return new ResultadoSemantica("variant", true, desc);
         }
         return new ResultadoSemantica(tipoVar, false, "");
@@ -586,7 +586,7 @@ public class Semantica {
                         conteo.tVariant++;
                         String desc = "Operando incompatible con operador unario " + c + ": " + rightVal + " ("
                                 + rightTipo + ")";
-                        erroresSemanticos.add(new ErroresSin("903", "Semantica", c, desc, linea));
+                        erroresSemanticos.add(new ErroresSin("903", "Semántica 1", c, desc, linea));
                         stackTipo.push("variant");
                     } else {
                         incrementarTemporal(conteo, resTipo);
@@ -1001,13 +1001,17 @@ public class Semantica {
         FIRMAS_SEM3.put("chr", new FirmaFuncionSem3("chr", 1, new int[] { 2009 },
                 new String[] { "TBin/TDec/TOct/THex/id" }, 2015, "TCadena"));
         FIRMAS_SEM3.put("pred",
-                new FirmaFuncionSem3("pred", 1, new int[] { 2010 }, new String[] { "id TReal/TExp" }, 2017, "TReal/TExp"));
+                new FirmaFuncionSem3("pred", 1, new int[] { 2010 }, new String[] { "id TReal/TExp" }, 2017,
+                        "TReal/TExp"));
         FIRMAS_SEM3.put("succ",
-                new FirmaFuncionSem3("succ", 1, new int[] { 2010 }, new String[] { "id TReal/TExp" }, 2017, "TReal/TExp"));
+                new FirmaFuncionSem3("succ", 1, new int[] { 2010 }, new String[] { "id TReal/TExp" }, 2017,
+                        "TReal/TExp"));
         FIRMAS_SEM3.put("inc",
-                new FirmaFuncionSem3("inc", 1, new int[] { 2009 }, new String[] { "TBin/TDec/TOct/THex/id" }, 2018, "TInt"));
+                new FirmaFuncionSem3("inc", 1, new int[] { 2009 }, new String[] { "TBin/TDec/TOct/THex/id" }, 2018,
+                        "TInt"));
         FIRMAS_SEM3.put("dec",
-                new FirmaFuncionSem3("dec", 1, new int[] { 2009 }, new String[] { "TBin/TDec/TOct/THex/id" }, 2018, "TInt"));
+                new FirmaFuncionSem3("dec", 1, new int[] { 2009 }, new String[] { "TBin/TDec/TOct/THex/id" }, 2018,
+                        "TInt"));
         FIRMAS_SEM3.put("sqr", new FirmaFuncionSem3("sqr", 1, new int[] { 2002 },
                 new String[] { "TDec/TReal/TExp/id" }, 2012, "TExp"));
     }
@@ -1616,10 +1620,11 @@ public class Semantica {
             boolean aceptada, int ambito) {
         String estado = aceptada ? "Acept" : "ERROR";
         String desc = "CVE " + clave + " (" + topePila + " -> " + valorReal + ")";
-        reglasSemanticas.add(new ReglaSemantica(linea, numRegla, clave, "-", topePila, valorReal, desc, estado, valorReal,
-                ambito));
+        reglasSemanticas
+                .add(new ReglaSemantica(linea, numRegla, clave, "-", topePila, valorReal, desc, estado, valorReal,
+                        ambito));
         if (!aceptada) {
-            erroresSemanticos.add(new ErroresSin(clave, "Semantica", valorReal, desc, linea));
+            erroresSemanticos.add(new ErroresSin(clave, "Semántica 2", valorReal, desc, linea));
         }
     }
 
@@ -1955,7 +1960,8 @@ public class Semantica {
         String funId = funTk.getLexema();
         String canon = normalizarFuncion(funId);
         if (canon != null) {
-            List<List<Tokens>> argTokensList = (insideArgs == null) ? Collections.emptyList() : separarIndices(insideArgs);
+            List<List<Tokens>> argTokensList = (insideArgs == null) ? Collections.emptyList()
+                    : separarIndices(insideArgs);
             return evaluarFuncionPredefinidaSem3(funTk, argTokensList, isUsedInValueContext, ms, tokenAmbitos,
                     tokenScopeStacks, lineaAmbitos, lineaScopeStacks, tempTypeCounts);
         }

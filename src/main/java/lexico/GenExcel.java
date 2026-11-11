@@ -131,8 +131,14 @@ public class GenExcel {
                     } else if ((codeNum >= 2001 && codeNum <= 2018) || "Semántica 3".equalsIgnoreCase(se.getNoTerminal())
                             || "Semantica 3".equalsIgnoreCase(se.getNoTerminal())) {
                         tipo = "Semántica 3";
-                    } else if (codeNum >= 903 || "Semantica".equalsIgnoreCase(se.getNoTerminal())) {
-                        tipo = "Error Semantico";
+                    } else if ((codeNum >= 1000 && codeNum < 2000) || "Semántica 2".equalsIgnoreCase(se.getNoTerminal())
+                            || "Semantica 2".equalsIgnoreCase(se.getNoTerminal())) {
+                        tipo = "Semántica 2";
+                    } else if (codeNum == 903 || codeNum == 904 || "Semántica 1".equalsIgnoreCase(se.getNoTerminal())
+                            || "Semantica 1".equalsIgnoreCase(se.getNoTerminal())
+                            || "Semantica".equalsIgnoreCase(se.getNoTerminal())
+                            || codeNum >= 903) {
+                        tipo = "Semántica 1";
                     }
                     row.createCell(3).setCellValue(tipo);
                     row.createCell(4).setCellValue(se.getLinea());
@@ -324,10 +330,7 @@ public class GenExcel {
                     } catch (Exception ignored) {
                     }
                     if (codeNum != 900 && codeNum != 901 && codeNum < 903
-                            && !"Semantica".equalsIgnoreCase(se.getNoTerminal())
-                            && !"Semántica 3".equalsIgnoreCase(se.getNoTerminal())
-                            && !"Semantica 3".equalsIgnoreCase(se.getNoTerminal())
-                            && !(codeNum >= 2001 && codeNum <= 2018)) {
+                            && (se.getNoTerminal() == null || !se.getNoTerminal().toLowerCase().startsWith("semant"))) {
                         realSintaxisErrors++;
                     }
                 }

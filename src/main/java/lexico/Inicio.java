@@ -490,8 +490,14 @@ public class Inicio extends JFrame {
                         } else if ((codeNum >= 2001 && codeNum <= 2018) || "Semántica 3".equalsIgnoreCase(se.getNoTerminal())
                                 || "Semantica 3".equalsIgnoreCase(se.getNoTerminal())) {
                             tipoError = "Semántica 3";
-                        } else if (codeNum >= 903 || "Semantica".equalsIgnoreCase(se.getNoTerminal())) {
-                            tipoError = "Error Semantico";
+                        } else if ((codeNum >= 1000 && codeNum < 2000) || "Semántica 2".equalsIgnoreCase(se.getNoTerminal())
+                                || "Semantica 2".equalsIgnoreCase(se.getNoTerminal())) {
+                            tipoError = "Semántica 2";
+                        } else if (codeNum == 903 || codeNum == 904 || "Semántica 1".equalsIgnoreCase(se.getNoTerminal())
+                                || "Semantica 1".equalsIgnoreCase(se.getNoTerminal())
+                                || "Semantica".equalsIgnoreCase(se.getNoTerminal())
+                                || codeNum >= 903) {
+                            tipoError = "Semántica 1";
                         }
                         errorTableModel.addRow(new Object[] { se.getCodigo(), se.getDescripcion(),
                                 se.getTerminal(), tipoError, se.getLinea() });
