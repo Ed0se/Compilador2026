@@ -105,14 +105,20 @@ public class Inicio extends JFrame {
         codeArea.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             public void insertUpdate(javax.swing.event.DocumentEvent e) {
                 updateLineNumbers();
+                if (btnCompilar != null)
+                    btnCompilar.setEnabled(true);
             }
 
             public void removeUpdate(javax.swing.event.DocumentEvent e) {
                 updateLineNumbers();
+                if (btnCompilar != null)
+                    btnCompilar.setEnabled(true);
             }
 
             public void changedUpdate(javax.swing.event.DocumentEvent e) {
                 updateLineNumbers();
+                if (btnCompilar != null)
+                    btnCompilar.setEnabled(true);
             }
         });
 
@@ -455,147 +461,152 @@ public class Inicio extends JFrame {
 
             @Override
             protected void done() {
-                Sintaxis localParser;
                 try {
-                    localParser = get();
+                    Sintaxis localParser;
+                    try {
+                        localParser = get();
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                        setStatus("Error interno: " + ex.getMessage(), STATUS_ERR);
+                        return;
+                    }
+                    parser = localParser;
+
+                    for (Tokens t : lex.getTokens())
+                        tokenTableModel.addRow(new Object[] { t.getTipo(), t.getLexema(), t.getLinea() });
+
+                    boolean hayErrores = !lex.getErrors().isEmpty() || !localParser.getErrores().isEmpty();
+                    if (hayErrores) {
+                        for (ErroresLex e : lex.getErrors())
+                            errorTableModel.addRow(new Object[] { e.getToken(), e.getDescripcion(),
+                                    e.getLexema(), e.getTipoError(), e.getLinea() });
+                        for (ErroresSin se : localParser.getErrores()) {
+                            String codeStr = se.getCodigo();
+                            int codeNum = -1;
+                            try {
+                                if (codeStr != null) {
+                                    codeNum = Integer.parseInt(codeStr.trim());
+                                }
+                            } catch (Exception ignored) {
+                            }
+
+                            String tipoError = "Error Sintaxis";
+                            if (codeNum == 900 || codeNum == 901) {
+                                tipoError = "Error Ambito";
+                            } else if ((codeNum >= 2001 && codeNum <= 2018) || "Semántica 3".equalsIgnoreCase(se.getNoTerminal())
+                                    || "Semantica 3".equalsIgnoreCase(se.getNoTerminal())) {
+                                tipoError = "Semántica 3";
+                            } else if ((codeNum >= 1000 && codeNum < 2000) || "Semántica 2".equalsIgnoreCase(se.getNoTerminal())
+                                    || "Semantica 2".equalsIgnoreCase(se.getNoTerminal())) {
+                                tipoError = "Semántica 2";
+                            } else if (codeNum == 903 || codeNum == 904 || "Semántica 1".equalsIgnoreCase(se.getNoTerminal())
+                                    || "Semantica 1".equalsIgnoreCase(se.getNoTerminal())
+                                    || "Semantica".equalsIgnoreCase(se.getNoTerminal())
+                                    || codeNum >= 903) {
+                                tipoError = "Semántica 1";
+                            }
+                            errorTableModel.addRow(new Object[] { se.getCodigo(), se.getDescripcion(),
+                                    se.getTerminal(), tipoError, se.getLinea() });
+                        }
+                        setStatus("  " + (lex.getErrors().size() + localParser.getErrores().size())
+                                + " error(es)", STATUS_ERR);
+                    } else {
+                        errorTableModel.addRow(new Object[] { "-", "Compilación correcta", "-", "OK", "-" });
+                        setStatus("  Compilación exitosa", STATUS_OK);
+                    }
+
+                    for (Map.Entry<String, Integer> entry : lex.getContadores().entrySet())
+                        counterTableModel.addRow(new Object[] { entry.getKey(), entry.getValue() });
+
+                    List<ZonaRegistro> zonas = localParser.getZonasRegistradas();
+                    if (zonas.isEmpty()) {
+                        scopeTableModel.addRow(new Object[] { "-", "-", "-", "-", "Sin eventos" });
+                    } else {
+                        for (ZonaRegistro z : zonas) {
+                            scopeTableModel.addRow(new Object[] {
+                                    z.getNumLinea(), z.getCategoria(), z.getEstado(), z.getTokenID(), z.getIndicadorSec()
+                            });
+                        }
+                    }
+
+                    // Tabla de Símbolos en memoria
+                    List<EntidadSimbolo> simbolos = localParser.getManejadorSimbolos().obtenerTodos();
+                    if (simbolos.isEmpty()) {
+                        simbolosTableModel.addRow(new Object[] { "-", "-", "-", "-", "-", "-", "-", "Sin Simbolos" });
+                    } else {
+                        for (EntidadSimbolo s : simbolos) {
+                            simbolosTableModel.addRow(new Object[] {
+                                    s.getIdentificador(),
+                                    s.getTipoDato(),
+                                    s.getClasificacion(),
+                                    s.getNivelAmbito(),
+                                    s.getTipoArreglo(),
+                                    s.getDimensionArreglo(),
+                                    s.getNumeroParametros() != null ? String.valueOf(s.getNumeroParametros()) : "-",
+                                    s.getTipoParametros()
+                            });
+                        }
+                    }
+
+                    List<Semantica.ConteoTemporales> conteos = localParser.getSemantica().getConteos();
+                    if (conteos != null && !conteos.isEmpty()) {
+                        for (Semantica.ConteoTemporales c : conteos) {
+                            String strAsig = c.detalleAsignacion.isEmpty() ? "-" : c.detalleAsignacion;
+                            semanticaTableModel.addRow(new Object[] {
+                                    c.linea, c.tBin, c.tDec, c.tOct, c.tHex, c.tReal, c.tExp, c.tCadena, c.tBoolean,
+                                    c.tVariant, strAsig, c.errores
+                            });
+                        }
+                    } else {
+                        semanticaTableModel
+                                .addRow(new Object[] { "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-" });
+                    }
+
+                    List<ReglaSemantica> reglas = localParser.getSemantica().getReglasSemanticas();
+                    if (reglas != null && !reglas.isEmpty()) {
+                        for (ReglaSemantica r : reglas) {
+                            reglasTableModel.addRow(new Object[] {
+                                    r.getClave(),
+                                    r.getFuncion() != null ? r.getFuncion() : "-",
+                                    r.getTopePila(),
+                                    r.getValorReal(),
+                                    r.getLinea(),
+                                    r.getSituacion(),
+                                    r.getAmbito()
+                            });
+                        }
+                    }
+
+                    Map<String, Semantica.ConteoT2> conteosT2 = localParser.getSemantica().getConteosT2();
+                    for (String rowKey : Semantica.FILAS_T2) {
+                        Semantica.ConteoT2 c = (conteosT2 != null) ? conteosT2.get(rowKey) : null;
+                        if (c != null) {
+                            sem3T2TableModel.addRow(new Object[] {
+                                    c.funcion,
+                                    c.entradas != null ? c.entradas : "",
+                                    c.salida != null ? c.salida : "",
+                                    c.aceptados,
+                                    c.errores
+                            });
+                        } else {
+                            boolean isParam = rowKey.contains("_p");
+                            sem3T2TableModel.addRow(new Object[] {
+                                    rowKey,
+                                    isParam ? 0 : "",
+                                    !isParam ? 0 : "",
+                                    0,
+                                    0
+                            });
+                        }
+                    }
                 } catch (Exception ex) {
                     ex.printStackTrace();
-                    setStatus("Error interno: " + ex.getMessage(), STATUS_ERR);
+                    setStatus("Error en interfaz: " + ex.getMessage(), STATUS_ERR);
+                } finally {
                     btnCompilar.setEnabled(true);
-                    return;
                 }
-                parser = localParser;
-
-                for (Tokens t : lex.getTokens())
-                    tokenTableModel.addRow(new Object[] { t.getTipo(), t.getLexema(), t.getLinea() });
-
-                boolean hayErrores = !lex.getErrors().isEmpty() || !localParser.getErrores().isEmpty();
-                if (hayErrores) {
-                    for (ErroresLex e : lex.getErrors())
-                        errorTableModel.addRow(new Object[] { e.getToken(), e.getDescripcion(),
-                                e.getLexema(), e.getTipoError(), e.getLinea() });
-                    for (ErroresSin se : localParser.getErrores()) {
-                        String codeStr = se.getCodigo();
-                        int codeNum = -1;
-                        try {
-                            if (codeStr != null) {
-                                codeNum = Integer.parseInt(codeStr.trim());
-                            }
-                        } catch (Exception ignored) {
-                        }
-
-                        String tipoError = "Error Sintaxis";
-                        if (codeNum == 900 || codeNum == 901) {
-                            tipoError = "Error Ambito";
-                        } else if ((codeNum >= 2001 && codeNum <= 2018) || "Semántica 3".equalsIgnoreCase(se.getNoTerminal())
-                                || "Semantica 3".equalsIgnoreCase(se.getNoTerminal())) {
-                            tipoError = "Semántica 3";
-                        } else if ((codeNum >= 1000 && codeNum < 2000) || "Semántica 2".equalsIgnoreCase(se.getNoTerminal())
-                                || "Semantica 2".equalsIgnoreCase(se.getNoTerminal())) {
-                            tipoError = "Semántica 2";
-                        } else if (codeNum == 903 || codeNum == 904 || "Semántica 1".equalsIgnoreCase(se.getNoTerminal())
-                                || "Semantica 1".equalsIgnoreCase(se.getNoTerminal())
-                                || "Semantica".equalsIgnoreCase(se.getNoTerminal())
-                                || codeNum >= 903) {
-                            tipoError = "Semántica 1";
-                        }
-                        errorTableModel.addRow(new Object[] { se.getCodigo(), se.getDescripcion(),
-                                se.getTerminal(), tipoError, se.getLinea() });
-                    }
-                    setStatus("  " + (lex.getErrors().size() + localParser.getErrores().size())
-                            + " error(es)", STATUS_ERR);
-                } else {
-                    errorTableModel.addRow(new Object[] { "-", "Compilación correcta", "-", "OK", "-" });
-                    setStatus("  Compilación exitosa", STATUS_OK);
-                }
-
-                for (Map.Entry<String, Integer> entry : lex.getContadores().entrySet())
-                    counterTableModel.addRow(new Object[] { entry.getKey(), entry.getValue() });
-
-                List<ZonaRegistro> zonas = localParser.getZonasRegistradas();
-                if (zonas.isEmpty()) {
-                    scopeTableModel.addRow(new Object[] { "-", "-", "-", "-", "Sin eventos" });
-                } else {
-                    for (ZonaRegistro z : zonas) {
-                        scopeTableModel.addRow(new Object[] {
-                                z.getNumLinea(), z.getCategoria(), z.getEstado(), z.getTokenID(), z.getIndicadorSec()
-                        });
-                    }
-                }
-
-                // Tabla de Símbolos en memoria
-                List<EntidadSimbolo> simbolos = localParser.getManejadorSimbolos().obtenerTodos();
-                if (simbolos.isEmpty()) {
-                    simbolosTableModel.addRow(new Object[] { "-", "-", "-", "-", "-", "-", "-", "Sin Simbolos" });
-                } else {
-                    for (EntidadSimbolo s : simbolos) {
-                        simbolosTableModel.addRow(new Object[] {
-                                s.getIdentificador(),
-                                s.getTipoDato(),
-                                s.getClasificacion(),
-                                s.getNivelAmbito(),
-                                s.getTipoArreglo(),
-                                s.getDimensionArreglo(),
-                                s.getNumeroParametros() != null ? String.valueOf(s.getNumeroParametros()) : "-",
-                                s.getTipoParametros()
-                        });
-                    }
-                }
-
-                List<Semantica.ConteoTemporales> conteos = localParser.getSemantica().getConteos();
-                if (conteos != null && !conteos.isEmpty()) {
-                    for (Semantica.ConteoTemporales c : conteos) {
-                        String strAsig = c.detalleAsignacion.isEmpty() ? "-" : c.detalleAsignacion;
-                        semanticaTableModel.addRow(new Object[] {
-                                c.linea, c.tBin, c.tDec, c.tOct, c.tHex, c.tReal, c.tExp, c.tCadena, c.tBoolean,
-                                c.tVariant, strAsig, c.errores
-                        });
-                    }
-                } else {
-                    semanticaTableModel
-                            .addRow(new Object[] { "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-" });
-                }
-
-                List<ReglaSemantica> reglas = localParser.getSemantica().getReglasSemanticas();
-                if (reglas != null && !reglas.isEmpty()) {
-                    for (ReglaSemantica r : reglas) {
-                        reglasTableModel.addRow(new Object[] {
-                                r.getClave(),
-                                r.getFuncion() != null ? r.getFuncion() : "-",
-                                r.getTopePila(),
-                                r.getValorReal(),
-                                r.getLinea(),
-                                r.getSituacion(),
-                                r.getAmbito()
-                        });
-                    }
-                }
-
-                Map<String, Semantica.ConteoT2> conteosT2 = localParser.getSemantica().getConteosT2();
-                for (String rowKey : Semantica.FILAS_T2) {
-                    Semantica.ConteoT2 c = (conteosT2 != null) ? conteosT2.get(rowKey) : null;
-                    if (c != null) {
-                        sem3T2TableModel.addRow(new Object[] {
-                                c.funcion,
-                                c.entradas != null ? c.entradas : "",
-                                c.salida != null ? c.salida : "",
-                                c.aceptados,
-                                c.errores
-                        });
-                    } else {
-                        boolean isParam = rowKey.contains("_p");
-                        sem3T2TableModel.addRow(new Object[] {
-                                rowKey,
-                                isParam ? 0 : "",
-                                !isParam ? 0 : "",
-                                0,
-                                0
-                        });
-                    }
-                }
-
-                btnCompilar.setEnabled(true);
             }
+
         };
 
         worker.execute();
