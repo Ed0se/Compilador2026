@@ -13,14 +13,15 @@ public class Sintaxis {
 
     static {
         Set<String> FF = new HashSet<>(Arrays.asList(T_ID, T_CONST, "(", "!", "~", "+", "-", "++", "--", "true",
-                "false", "null", "SQRT", "sin", "cos", "tan", "POW", "SQRTV", "STRLEN", "concat", "copy", "val", "str",
-                "chr", "pred", "succ", "inc", "dec", "sqr", "sqr", "CLEAR", "Console.log", "Console.read",
-                "console.log", "console.read"));
+                "false", "null", "SQRT", "sqrt", "sin", "cos", "tan", "POW", "pow", "SQRTV", "sqrtv", "STRLEN", "strlen",
+                "len", "concat", "copy", "val", "str", "chr", "char", "pred", "succ", "inc", "dec", "sqr", "CLEAR",
+                "clean", "clear", "Console.log", "Console.read", "console.log", "console.read"));
         Set<String> emptyFollows = new HashSet<>(Arrays.asList(")", "]", ";", ",", ":", "?", "{", "}", "$", "if",
                 "while", "do", "for", "switch", "return", "break", "main", "def", "var", "reg", "case", "default",
                 "else", "elseif", "log", "read", "[", ".", "!", "~", "+", "-", "++", "--", "true", "false", "null",
-                "SQRT", "sin", "cos", "tan", "POW", "SQRTV", "STRLEN", "concat", "copy", "val", "str", "chr", "pred",
-                "succ", "inc", "dec", "sqr", "CLEAR", "||", "|", "&&", "&", "==", "!=", "<", ">", "<=", ">=", "<<",
+                "SQRT", "sqrt", "sin", "cos", "tan", "POW", "pow", "SQRTV", "sqrtv", "STRLEN", "strlen", "len",
+                "concat", "copy", "val", "str", "chr", "char", "pred", "succ", "inc", "dec", "sqr", "CLEAR", "clean",
+                "clear", "||", "|", "&&", "&", "==", "!=", "<", ">", "<=", ">=", "<<",
                 ">>", ">>>", "*", "/", "%", "#", "^", "=", "+=", "-=", "*=", "/="));
         emptyFollows.addAll(FF);
 
@@ -117,6 +118,8 @@ public class Sintaxis {
         m.put("console.read", new String[] { "M_STAT", "console.read", "(", "O_L", ")", "OPT_SEMI" });
         m.put("--", new String[] { "M_STAT", "--", T_ID, "OPT_SEMI" });
         m.put("CLEAR", new String[] { "M_STAT", "M_FUNC", "CLEAR", "OPT_SEMI" });
+        m.put("clean", new String[] { "M_STAT", "M_FUNC", "clean", "OPT_SEMI" });
+        m.put("clear", new String[] { "M_STAT", "M_FUNC", "clear", "OPT_SEMI" });
         m.put("if", new String[] { "M_STAT", "if", "(", "OR", ")", "STATU", "E_P" });
         m.put("while", new String[] { "M_STAT", "while", "(", "OR", ")", "STATU" });
         m.put("do", new String[] { "M_STAT", "do", "STATU", "while", "(", "OR", ")", "OPT_SEMI" });
@@ -393,16 +396,19 @@ public class Sintaxis {
         m.put("-", new String[] { "-", "FACT" });
         m.put("++", new String[] { "++", T_ID });
         m.put("--", new String[] { "--", T_ID });
-        String[] func1 = { "SQRT", "STRLEN", "sin", "cos", "tan", "chr", "pred", "succ", "inc", "dec", "sqr" };
+        String[] func0 = { "CLEAR", "clean", "clear" };
+        for (String s : func0)
+            m.put(s, new String[] { "M_FACT", "M_FUNC", s });
+
+        String[] func1 = { "SQRT", "sqrt", "STRLEN", "strlen", "len", "sin", "cos", "tan", "chr", "char", "pred", "succ", "inc", "dec", "sqr" };
         for (String s : func1)
             m.put(s, new String[] { "M_FACT", "M_FUNC", s, "(", "OR", ")" });
 
-        String[] func2 = { "POW", "SQRTV", "concat", "copy", "str" };
+        String[] func2 = { "POW", "pow", "SQRTV", "sqrtv", "concat", "copy", "str" };
         for (String s : func2)
             m.put(s, new String[] { "M_FACT", "M_FUNC", s, "(", "OR", ",", "OR", ")" });
 
         m.put("val", new String[] { "M_FACT", "M_FUNC", "val", "(", "OR", ",", "OR", ",", "OR", ")" });
-        m.put("CLEAR", new String[] { "M_FACT", "M_FUNC", "CLEAR" });
         m.put("Console.read", new String[] { "M_FACT", "Console.read", "(", "O_L", ")" });
         m.put("console.read", new String[] { "M_FACT", "console.read", "(", "O_L", ")" });
         m.put("Console.log", new String[] { "M_FACT", "Console.log", "(", "O_L", ")" });
@@ -863,11 +869,13 @@ public class Sintaxis {
     }
 
     private boolean esGlobal(String lex) {
+        if (lex == null)
+            return false;
         String[] builtins = { "SQRT", "sin", "cos", "tan", "POW", "SQRTV", "STRLEN", "concat", "copy", "val", "str",
-                "chr", "pred", "succ", "inc", "dec", "sqr", "CLEAR", "Console.log", "console.log", "Console.read",
-                "console.read" };
+                "chr", "pred", "succ", "inc", "dec", "sqr", "CLEAR", "clean", "clear", "char", "len",
+                "Console.log", "console.log", "Console.read", "console.read" };
         for (String b : builtins)
-            if (b.equals(lex))
+            if (b.equalsIgnoreCase(lex))
                 return true;
         return false;
     }

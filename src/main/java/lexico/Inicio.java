@@ -49,6 +49,7 @@ public class Inicio extends JFrame {
     private DefaultTableModel simbolosTableModel;
     private DefaultTableModel semanticaTableModel;
     private DefaultTableModel reglasTableModel;
+    private DefaultTableModel sem3T2TableModel;
 
     private final Lexico lex = new Lexico();
     private Sintaxis parser;
@@ -160,6 +161,7 @@ public class Inicio extends JFrame {
         tabs.addTab("Símbolos", buildSimbolosTab());
         tabs.addTab("Semántica", buildSemanticaTab());
         tabs.addTab("Reglas Semánticas", buildReglasTab());
+        tabs.addTab("Semántica 3 T2", buildSem3T2Tab());
         return tabs;
     }
 
@@ -268,12 +270,22 @@ public class Inicio extends JFrame {
 
     private JScrollPane buildReglasTab() {
         reglasTableModel = new DefaultTableModel(
-                new Object[] { "Regla", "Tope de Pila", "Valor Real", "Línea", "Estado", "Ámbito" }, 0) {
+                new Object[] { "Regla", "Función", "Tope de Pila", "Valor Real", "Línea", "Estado", "Ámbito" }, 0) {
             public boolean isCellEditable(int r, int c) {
                 return false;
             }
         };
-        return styledTable(reglasTableModel, new int[] { 70, 150, 150, 70, 90, 70 });
+        return styledTable(reglasTableModel, new int[] { 70, 110, 150, 150, 70, 90, 70 });
+    }
+
+    private JScrollPane buildSem3T2Tab() {
+        sem3T2TableModel = new DefaultTableModel(
+                new Object[] { "Función", "Entradas", "Salida", "Aceptados", "Errores" }, 0) {
+            public boolean isCellEditable(int r, int c) {
+                return false;
+            }
+        };
+        return styledTable(sem3T2TableModel, new int[] { 140, 100, 100, 100, 100 });
     }
 
     private JScrollPane styledTable(DefaultTableModel model, int[] widths) {
@@ -413,6 +425,8 @@ public class Inicio extends JFrame {
         semanticaTableModel.setRowCount(0);
         if (reglasTableModel != null)
             reglasTableModel.setRowCount(0);
+        if (sem3T2TableModel != null)
+            sem3T2TableModel.setRowCount(0);
         parser = null;
 
         btnCompilar.setEnabled(false);
@@ -473,6 +487,9 @@ public class Inicio extends JFrame {
                         String tipoError = "Error Sintaxis";
                         if (codeNum == 900 || codeNum == 901) {
                             tipoError = "Error Ambito";
+                        } else if ((codeNum >= 2001 && codeNum <= 2018) || "Semántica 3".equalsIgnoreCase(se.getNoTerminal())
+                                || "Semantica 3".equalsIgnoreCase(se.getNoTerminal())) {
+                            tipoError = "Semántica 3";
                         } else if (codeNum >= 903 || "Semantica".equalsIgnoreCase(se.getNoTerminal())) {
                             tipoError = "Error Semantico";
                         }
@@ -538,11 +555,35 @@ public class Inicio extends JFrame {
                     for (ReglaSemantica r : reglas) {
                         reglasTableModel.addRow(new Object[] {
                                 r.getClave(),
+                                r.getFuncion() != null ? r.getFuncion() : "-",
                                 r.getTopePila(),
                                 r.getValorReal(),
                                 r.getLinea(),
                                 r.getSituacion(),
                                 r.getAmbito()
+                        });
+                    }
+                }
+
+                Map<String, Semantica.ConteoT2> conteosT2 = localParser.getSemantica().getConteosT2();
+                for (String rowKey : Semantica.FILAS_T2) {
+                    Semantica.ConteoT2 c = (conteosT2 != null) ? conteosT2.get(rowKey) : null;
+                    if (c != null) {
+                        sem3T2TableModel.addRow(new Object[] {
+                                c.funcion,
+                                c.entradas != null ? c.entradas : "",
+                                c.salida != null ? c.salida : "",
+                                c.aceptados,
+                                c.errores
+                        });
+                    } else {
+                        boolean isParam = rowKey.contains("_p");
+                        sem3T2TableModel.addRow(new Object[] {
+                                rowKey,
+                                isParam ? 0 : "",
+                                !isParam ? 0 : "",
+                                0,
+                                0
                         });
                     }
                 }
@@ -568,6 +609,7 @@ public class Inicio extends JFrame {
                         parser.getVisitas(), parser.fallosEnAmbitos, parser.getManejadorSimbolos().obtenerTodos(),
                         parser.getSemantica().getConteos(),
                         parser.getSemantica().getReglasSemanticas(),
+                        parser.getSemantica().getConteosT2(),
                         fc.getSelectedFile().getAbsolutePath());
                 JOptionPane.showMessageDialog(this, "Archivo Excel generado correctamente.", "Exito",
                         JOptionPane.INFORMATION_MESSAGE);

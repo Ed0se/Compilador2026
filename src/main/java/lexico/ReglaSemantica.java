@@ -4,6 +4,7 @@ public class ReglaSemantica {
     private final int linea;
     private final int regla;
     private final String clave;
+    private final String funcion;
     private final String topePila;
     private final String valorReal;
     private final String descripcion;
@@ -13,15 +14,25 @@ public class ReglaSemantica {
 
     public ReglaSemantica(int linea, int regla, String clave, String topePila, String valorReal, String descripcion,
             String situacion, String lexema, int ambito) {
+        this(linea, regla, clave, "-", topePila, valorReal, descripcion, situacion, lexema, ambito);
+    }
+
+    public ReglaSemantica(int linea, int regla, String clave, String funcion, String topePila, String valorReal,
+            String descripcion, String situacion, String lexema, int ambito) {
         this.linea = linea;
         this.regla = regla;
         this.clave = clave;
+        this.funcion = (funcion != null && !funcion.isEmpty()) ? funcion : "-";
         this.topePila = topePila;
         this.valorReal = valorReal;
         this.descripcion = descripcion;
         this.situacion = situacion;
         this.lexema = lexema;
         this.ambito = ambito;
+    }
+
+    public String getFuncion() {
+        return funcion;
     }
 
     public int getLinea() {

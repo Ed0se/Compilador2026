@@ -24,6 +24,21 @@ public class GenExcel {
             List<Semantica.ConteoTemporales> conteosSemantica,
             List<ReglaSemantica> reglasSemantica,
             String filePath) throws IOException {
+        export(tokens, errors, contadores, sintaxisErrors, visitas, erroresAmbito, simbolos,
+                conteosSemantica, reglasSemantica, null, filePath);
+    }
+
+    public static void export(List<Tokens> tokens,
+            List<ErroresLex> errors,
+            Map<String, Integer> contadores,
+            List<ErroresSin> sintaxisErrors,
+            Map<String, Integer> visitas,
+            Map<Integer, Integer> erroresAmbito,
+            List<EntidadSimbolo> simbolos,
+            List<Semantica.ConteoTemporales> conteosSemantica,
+            List<ReglaSemantica> reglasSemantica,
+            Map<String, Semantica.ConteoT2> conteosT2,
+            String filePath) throws IOException {
 
         try (XSSFWorkbook wb = new XSSFWorkbook()) {
             CellStyle headerStyle = wb.createCellStyle();
@@ -113,6 +128,9 @@ public class GenExcel {
                     String tipo = "Error Sintaxis";
                     if (codeNum == 900 || codeNum == 901) {
                         tipo = "Error Ambito";
+                    } else if ((codeNum >= 2001 && codeNum <= 2018) || "Semántica 3".equalsIgnoreCase(se.getNoTerminal())
+                            || "Semantica 3".equalsIgnoreCase(se.getNoTerminal())) {
+                        tipo = "Semántica 3";
                     } else if (codeNum >= 903 || "Semantica".equalsIgnoreCase(se.getNoTerminal())) {
                         tipo = "Error Semantico";
                     }
@@ -306,7 +324,10 @@ public class GenExcel {
                     } catch (Exception ignored) {
                     }
                     if (codeNum != 900 && codeNum != 901 && codeNum < 903
-                            && !"Semantica".equalsIgnoreCase(se.getNoTerminal())) {
+                            && !"Semantica".equalsIgnoreCase(se.getNoTerminal())
+                            && !"Semántica 3".equalsIgnoreCase(se.getNoTerminal())
+                            && !"Semantica 3".equalsIgnoreCase(se.getNoTerminal())
+                            && !(codeNum >= 2001 && codeNum <= 2018)) {
                         realSintaxisErrors++;
                     }
                 }
@@ -571,7 +592,7 @@ public class GenExcel {
             // ── Semantica 2-Base ──────────────────────────────────────────────────
             XSSFSheet sheetSem2Base = wb.createSheet("Semantica 2-Base");
             sheetSem2Base.setDisplayGridlines(true);
-            String[] sem2BaseHeaders = { "Regla", "Tope de Pila", "Valor Real", "Linea", "Estado", "Ambito" };
+            String[] sem2BaseHeaders = { "Regla", "Función", "Tope de Pila", "Valor Real", "Linea", "Estado", "Ambito" };
             Row sem2BaseHeaderRow = sheetSem2Base.createRow(0);
             for (int i = 0; i < sem2BaseHeaders.length; i++) {
                 Cell cell = sem2BaseHeaderRow.createCell(i);
@@ -587,14 +608,15 @@ public class GenExcel {
                     } catch (NumberFormatException ex) {
                         row.createCell(0).setCellValue(r.getClave());
                     }
-                    row.createCell(1).setCellValue(r.getTopePila());
-                    row.createCell(2).setCellValue(r.getValorReal());
-                    row.createCell(3).setCellValue(r.getLinea());
-                    row.createCell(4).setCellValue(r.getSituacion());
-                    row.createCell(5).setCellValue(r.getAmbito());
+                    row.createCell(1).setCellValue(r.getFuncion() != null ? r.getFuncion() : "-");
+                    row.createCell(2).setCellValue(r.getTopePila());
+                    row.createCell(3).setCellValue(r.getValorReal());
+                    row.createCell(4).setCellValue(r.getLinea());
+                    row.createCell(5).setCellValue(r.getSituacion());
+                    row.createCell(6).setCellValue(r.getAmbito());
                 }
             }
-            int[] sem2BaseWidths = { 3000, 5500, 5500, 3000, 3500, 3000 };
+            int[] sem2BaseWidths = { 3000, 3500, 5500, 5500, 3000, 3500, 3000 };
             for (int i = 0; i < sem2BaseWidths.length; i++) {
                 sheetSem2Base.setColumnWidth(i, sem2BaseWidths[i]);
             }
@@ -630,6 +652,9 @@ public class GenExcel {
                         ruleCode = Integer.parseInt(r.getClave());
                     } catch (NumberFormatException ignored) {
                     }
+                    if (ruleCode >= 2000) {
+                        continue;
+                    }
                     resumenReglas.computeIfAbsent(ruleCode, k -> new int[3]);
                     int[] counts = resumenReglas.get(ruleCode);
                     counts[0]++; // aparecen
@@ -652,6 +677,47 @@ public class GenExcel {
             int[] sem2TotalWidths = { 3500, 4000, 4000, 4000 };
             for (int i = 0; i < sem2TotalWidths.length; i++) {
                 sheetSem2Total.setColumnWidth(i, sem2TotalWidths[i]);
+            }
+
+            // ── SEMANTICA 3 T2 ────────────────────────────────────────────────────
+            XSSFSheet sheetSem3T2 = wb.createSheet("SEMANTICA 3 T2");
+            sheetSem3T2.setDisplayGridlines(true);
+            String[] sem3T2Headers = { "Función", "Entradas", "Salida", "Aceptados", "Errores" };
+            Row sem3T2HeaderRow = sheetSem3T2.createRow(0);
+            for (int i = 0; i < sem3T2Headers.length; i++) {
+                Cell cell = sem3T2HeaderRow.createCell(i);
+                cell.setCellValue(sem3T2Headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            int sem3RowIdx = 1;
+            for (String rowKey : Semantica.FILAS_T2) {
+                Semantica.ConteoT2 c = (conteosT2 != null) ? conteosT2.get(rowKey) : null;
+                Row r = sheetSem3T2.createRow(sem3RowIdx++);
+                r.createCell(0).setCellValue(rowKey);
+                if (c != null) {
+                    if (c.entradas != null) {
+                        r.createCell(1).setCellValue(c.entradas);
+                    }
+                    if (c.salida != null) {
+                        r.createCell(2).setCellValue(c.salida);
+                    }
+                    r.createCell(3).setCellValue(c.aceptados);
+                    r.createCell(4).setCellValue(c.errores);
+                } else {
+                    boolean isParam = rowKey.contains("_p");
+                    if (isParam) {
+                        r.createCell(1).setCellValue(0);
+                    } else {
+                        r.createCell(2).setCellValue(0);
+                    }
+                    r.createCell(3).setCellValue(0);
+                    r.createCell(4).setCellValue(0);
+                }
+            }
+            int[] sem3T2Widths = { 4500, 3500, 3500, 3500, 3500 };
+            for (int i = 0; i < sem3T2Widths.length; i++) {
+                sheetSem3T2.setColumnWidth(i, sem3T2Widths[i]);
             }
 
             try (java.io.FileOutputStream out = new java.io.FileOutputStream(filePath)) {

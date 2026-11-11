@@ -28,6 +28,7 @@ public class Lexico {
             "replace", "split", "push", "shift", "in", "of", "splice",
             "concat", "copy", "val", "str", "sin", "cos", "tan", "chr",
             "pred", "succ", "inc", "dec", "sqr", "ofsort", "reverse", "find", "findIndex", "filter", "map", "CLEAR",
+            "clean", "clear", "len", "sqrt", "pow", "sqrtv", "strlen",
             "SQRT", "POW", "SQRTV", "STRLEN"));
 
     private static final String[] CATEGORIAS = {
